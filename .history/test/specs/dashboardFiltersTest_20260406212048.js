@@ -1,0 +1,36 @@
+import { expect } from '@wdio/globals';
+import theSignInPage from '../pageobjects/theSignInPage.js';
+import { users } from '../data/users.js';
+
+describe('Dashboard Filters', () => {
+
+    beforeEach(async () => {
+        await browser.reloadSession();
+
+        await theSignInPage.open();
+
+        const user = users[0];
+        await theSignInPage.login(user.username, user.password);
+    });
+
+    it('should apply "Within 3 months" filter', async () => {
+        // STEP 1: locate filter
+        const filterDropdown = $('button[data-testid="upcoming-events-filter-dropdown"]'); // ← we will fix this
+
+        await filterDropdown.click();
+
+        const within7Days = $('button[value="Within 7 days"]'); // ← we will fix this
+        await within7Days.click();
+
+        // VERIFY something changed
+
+
+        await expect(taskList).toBeDisplayed();
+
+
+
+        // wait for dashboard
+        await $('[data-testid="menu-logout-button"]').waitForDisplayed();
+    });
+
+});

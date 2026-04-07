@@ -23,15 +23,7 @@ class DashboardPage extends Page {
     // ===== ACTIONS =====
 
     async waitForDashboard() {
-        await this.logoutButton.waitForDisplayed({ timeout: 10000 });
-    }
-
-    async logout() {
-        await this.logoutButton.waitForClickable();
-        await this.logoutButton.click();
-
-        // wait until back on login page
-        await this.loginUsernameField.waitForDisplayed({ timeout: 10000 });
+        await this.logoutButton.waitForDisplayed();
     }
 
     async openFilter() {
@@ -41,8 +33,6 @@ class DashboardPage extends Page {
 
     async selectLastMonthFilter() {
         const option = $('button[value="Within last month"]');
-
-        await option.waitForDisplayed();
         await option.waitForClickable();
         await option.click();
 
