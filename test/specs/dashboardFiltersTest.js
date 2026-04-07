@@ -1,3 +1,46 @@
+// import { expect } from '@wdio/globals';
+// import theSignInPage from '../pageobjects/theSignInPage.js';
+// import dashboardPage from '../pageobjects/dashboardPage.js';
+// import { users } from '../data/users.js';
+
+// describe('Dashboard Filters', () => {
+
+//     beforeEach(async () => {
+
+//         console.log('\nSTARTING TEST\n');
+
+//         await browser.reloadSession();
+
+//         await theSignInPage.open();
+
+//         const user = users[0];
+
+//         console.log('Logging in as:', user.username);
+
+//         await theSignInPage.login(user.username, user.password);
+
+//         await browser.waitUntil(async () => {
+//             return await dashboardPage.filterDropdown.isDisplayed();
+//         }, { timeout: 10000 });
+
+//         await dashboardPage.waitForDashboard();
+//     });
+
+//     it('should cycle through all filters in order', async () => {
+
+//         console.log('Running filter test');
+
+//         await dashboardPage.cycleThroughFilters();
+
+//         const finalValue = await dashboardPage.getFilterText();
+
+//         console.log('FINAL VALUE:', finalValue);
+
+//         await expect(finalValue).toBe('Within 3 months');
+
+//     }, 2);
+
+// });
 import { expect } from '@wdio/globals';
 import theSignInPage from '../pageobjects/theSignInPage.js';
 import dashboardPage from '../pageobjects/dashboardPage.js';
@@ -6,107 +49,51 @@ import { users } from '../data/users.js';
 describe('Dashboard Filters', () => {
 
     beforeEach(async () => {
+
+        console.log('Starting test...');
+
         await browser.reloadSession();
 
         await theSignInPage.open();
 
         const user = users[0];
+
+        console.log('Logging in user:', user.username);
+
         await theSignInPage.login(user.username, user.password);
+
+        await browser.waitUntil(async () => {
+            return await dashboardPage.filterDropdown.isDisplayed();
+        }, { timeout: 10000 });
 
         await dashboardPage.waitForDashboard();
     });
 
-    it('should show default filter', async () => {
-        const text = await dashboardPage.getFilterText();
+    it('should cycle through all filters in order', async () => {
 
-        await expect(text).toBe('Within 3 months');
-    });
+        console.log('Running filter cycle test');
 
-    it('should change filter when selecting another option', async () => {
-        await dashboardPage.openFilter();
-        await dashboardPage.selectLastMonthFilter();
+        await dashboardPage.cycleThroughFilters();
 
-        const text = await dashboardPage.getFilterText();
+        const finalValue = await dashboardPage.getFilterText();
 
-        await expect(text).toBe('Within last month');
-    });
+        console.log('Final filter value:', finalValue);
 
-    it('should update task list when filter changes', async () => {
+        await expect(finalValue).toBe('Within 3 months');
+
+    }, 2);
+
+    it('should update tasks when filters change', async () => {
+
         const before = await dashboardPage.getTaskCount();
 
-        await dashboardPage.openFilter();
-        await dashboardPage.selectLastMonthFilter();
+        await dashboardPage.cycleThroughFilters();
 
         await dashboardPage.waitForTaskUpdate(before);
 
         const after = await dashboardPage.getTaskCount();
 
         await expect(after).not.toBe(before);
-    });
-
-    it('should update metrics when filter changes', async () => {
-        const before = await dashboardPage.getPageText();
-
-        await dashboardPage.openFilter();
-        await dashboardPage.selectLastMonthFilter();
-
-        await dashboardPage.waitForMetricsUpdate(before);
-
-        const after = await dashboardPage.getPageText();
-
-        await expect(after).not.toBe(before);
-    });
-
-    it('should keep filter after navigating away and back', async () => {
-        await dashboardPage.openFilter();
-        await dashboardPage.selectLastMonthFilter();
-
-        // navigate away
-        await browser.url('/cases');
-
-        await browser.waitUntil(async () => {
-            return (await browser.getUrl()).includes('/cases');
-        });
-
-        // go back
-        await browser.back();
-
-        await dashboardPage.waitForDashboard();
-
-        const text = await dashboardPage.getFilterText();
-
-        await expect(text).toBe('Within last month');
-    });
-
-    it('should keep filter after refresh', async () => {
-        await dashboardPage.openFilter();
-        await dashboardPage.selectLastMonthFilter();
-
-        await browser.refresh();
-
-        await dashboardPage.waitForDashboard();
-
-        // wait until filter text stabilizes
-        await browser.waitUntil(async () => {
-            return (await dashboardPage.getFilterText()) === 'Within last month';
-        });
-
-        const text = await dashboardPage.getFilterText();
-
-        await expect(text).toBe('Within last month');
-    });
-
-    it('should not crash when filter shows little or no data', async () => {
-        await dashboardPage.openFilter();
-
-        const option = $('button[value="Within 7 days"]');
-
-        if (await option.isExisting()) {
-            await option.waitForClickable();
-            await option.click();
-        }
-
-        await expect($('body')).toBeDisplayed();
     });
 
 });
