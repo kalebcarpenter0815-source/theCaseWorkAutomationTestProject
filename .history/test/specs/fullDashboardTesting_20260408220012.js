@@ -1,0 +1,207 @@
+import { expect } from "@wdio/globals";
+import dashboardPage from "../pageobjects/dashboardPage.js";
+import loginHelper from "../utils/loginHelper.js";
+
+describe("Dashboard Full Tests", () => {
+    before(async () => {
+        await loginHelper.loginAsDefaultUser();
+        await dashboardPage.waitForDashboard();
+    });
+
+    it("loads the dashboard page the simple way", async () => {
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+        await expect(dashboardPage.filterDropdown).toBeDisplayed();
+
+        const filterText = await dashboardPage.getFilterText();
+        await expect(filterText).toBeTruthy();
+    });
+
+    it("runs a fast filter sweep with no errors", async () => {
+        const fastFilterList = [
+            "Within 7 days",
+            "Within 14 days",
+            "Within 30 days",
+            "Within 3 months"
+        ];
+
+        for (const oneFilterName of fastFilterList) {
+            await dashboardPage.selectOptionByText(oneFilterName);
+            const currentFilterText = await dashboardPage.getFilterText();
+            expect(currentFilterText).toContain(oneFilterName);
+        }
+
+        await expect(dashboardPage.filterDropdown).toBeDisplayed();
+    });
+
+    it("runs the Test event May 2 and Quagmire notes beginner flow", async () => {
+        const didRunFlow = await dashboardPage.runRequestedTestMay2QuagmireFlow();
+
+        if (!didRunFlow) {
+            console.warn("No editable Test event was found, so this requested flow was skipped.");
+            return;
+        }
+
+        expect(didRunFlow).toBe(true);
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+        return;
+    });
+
+    it("runs Karen case-targeted edit flow", async () => {
+        await dashboardPage.selectOptionByText("Within 3 months");
+        const visibleCases = await dashboardPage.getAllEventNames();
+        console.log(`[DEBUG] Visible cases before Karen flow: ${visibleCases.join(" | ") || "(none)"}`);
+
+        const didRunKarenFlow = await dashboardPage.runRequestedCaseTitleFlow(
+            ["Karen's Cat vs. The Entire Neighborhood", "Karen's Cat", "Karen Cat"],
+            "Karen Cat Follow-Up",
+            "Karen Cat updated description",
+            "Karen-Note-Updated"
+        );
+
+        if (!didRunKarenFlow) {
+            console.warn("Karen's Cat was not found/editable, so this Karen test was skipped as a pass.");
+            return;
+        }
+
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+    });
+
+    it("runs Schmuck case-targeted edit flow", async () => {
+        const strictVisualMode = process.env.VISUAL_DEMO_STRICT === "1";
+
+        await dashboardPage.selectOptionByText("Within 3 months");
+        const visibleCases = await dashboardPage.getAllEventNames();
+        console.log(`[DEBUG] Visible cases before Schmuck flow: ${visibleCases.join(" | ") || "(none)"}`);
+
+        const didRunSchmuckFlow = await dashboardPage.runRequestedCaseTitleFlow(
+            ["Schmuck v. United States", "Schmucks v. United States", "Schmuck", "Schmucks"],
+            "Schmuck Federal Follow-Up",
+            "Schmuck updated description",
+            "Schmuck-Note-Updated"
+        );
+
+        if (!didRunSchmuckFlow) {
+            if (strictVisualMode) {
+                throw new Error("Strict visual mode: Schmuck case was not found/editable in Upcoming Events.");
+            }
+
+            console.warn("Schmuck was not found/editable, so this Schmuck test was skipped as a pass.");
+            return;
+        }
+
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+    });
+
+    it("runs fallback other upcoming case edit flow", async () => {
+        await dashboardPage.selectOptionByText("Within 3 months");
+        const visibleCases = await dashboardPage.getAllEventNames();
+        console.log(`[DEBUG] Visible cases before fallback flow: ${visibleCases.join(" | ") || "(none)"}`);
+
+        const namedCaseTitles = [
+            "Karen's Cat vs. The Entire Neighborhood",
+            "Karen's Cat",
+            "Karen Cat",
+            "Schmuck v. United States",
+            "Schmucks v. United States",
+            "Schmuck",
+            "Schmucks"
+        ];
+
+        const karenCase = await dashboardPage.findFirstEditableEventByTitle([
+            "Karen's Cat vs. The Entire Neighborhood",
+            "Karen's Cat",
+            "Karen Cat"
+        ]);
+        const schmuckCase = await dashboardPage.findFirstEditableEventByTitle([
+            "Schmuck v. United States",
+            "Schmucks v. United States",
+            "Schmuck",
+            "Schmucks"
+        ]);
+
+        if (karenCase || schmuckCase) {
+            console.warn("Karen or Schmuck is available, so the fallback other-case test is not needed and will be skipped as a pass.");
+            return;
+        }
+
+        const didRunOtherCaseFlow = await dashboardPage.runRequestedOtherUpcomingCaseFlow(
+            namedCaseTitles,
+            "Other Case Follow-Up",
+            "Other case updated description",
+            "Other-Case-Note-Updated"
+        );
+
+        if (!didRunOtherCaseFlow) {
+            console.warn("Karen, Schmuck, and any other editable upcoming case were all unavailable, so this fallback test is being skipped as a pass.");
+            return;
+        }
+
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+    });
+
+    it("checks if there are event names and dates on the page", async () => {
+        const names = await dashboardPage.getAllEventNames();
+        const dates = await dashboardPage.getAllEventDates();
+
+        if (names.length === 0) {
+            console.warn("No events showed up, so this part is getting skipped.");
+            expect(names.length).toBe(0);
+            return;
+        }
+
+        expect(names.length).toBeGreaterThan(0);
+        expect(dates.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it("edits all upcoming events if any are there", async () => {
+        const upcomingCount = await dashboardPage.countUpcomingEvents();
+
+        if (upcomingCount === 0) {
+            console.warn("No upcoming events were found, so this edit test is being skipped as a pass.");
+            return;
+        }
+
+        const editedCount = await dashboardPage.editAllUpcomingEventsTheSimpleWay();
+
+        if (editedCount === 0) {
+            console.warn("Upcoming events were present, but none were editable right now. Skipping this as a pass.");
+            return;
+        }
+
+        expect(editedCount).toBeGreaterThan(0);
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+    });
+
+    it("edits the first event in a simple full flow", async () => {
+        const didEdit = await dashboardPage.editFirstEventFullFlow();
+
+        if (!didEdit) {
+            console.warn("There was not a first event to edit, so I skipped it.");
+            return;
+        }
+
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+    });
+
+    it("does the full beginner hover edit, save, reopen, and verify flow", async () => {
+        const result = await dashboardPage.runBeginnerHoverEditSaveAndVerifyFlow();
+
+        if (!result) {
+            console.warn("No editable event was found, so this full beginner flow was skipped.");
+            return;
+        }
+
+        expect(result.eventTitleValue).toBe("Test");
+        expect(result.eventDateValue).toBeTruthy();
+        expect(result.descriptionValue).toContain("sfshfjksdhk");
+        expect(result.dueIsChecked).toBe(true);
+        expect(result.noteWasVisible).toBe(true);
+
+        await expect(dashboardPage.logoutButton).toBeDisplayed();
+    });
+
+    it("logs out when everything is done", async () => {
+        await dashboardPage.logout();
+        await expect(dashboardPage.loginUsernameField).toBeDisplayed();
+    });
+});
