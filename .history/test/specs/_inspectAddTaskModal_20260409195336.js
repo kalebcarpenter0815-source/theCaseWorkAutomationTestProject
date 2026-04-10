@@ -1,0 +1,97 @@
+import { expect } from '@wdio/globals';
+import loginHelper from '../utils/loginHelper.js';
+import dashboardPage from '../pageobjects/dashboardPage.js';
+
+describe('Inspect Add Task Modal Selectors', () => {
+    before(async () => {
+        await loginHelper.loginAsDefaultUser();
+        await browser.url('https://app.thecasework.com');
+    });
+
+    after(async () => {
+        await dashboardPage.logout();
+    });
+
+    it('should inspect Add Task modal selectors and extract Assign To names', async () => {
+        // Navigate to My Tasks section
+        await browser.url('https://app.thecasework.com/dashboard');
+        await browser.pause(2000);
+
+        // Click Add Task button
+        const addTaskButton = await $('[data-testid="tasks-card-add-task-button"]');
+        await addTaskButton.waitForClickable({ timeout: 10000 });
+        await addTaskButton.click();
+        await browser.pause(2000);
+
+        // Extract all modal element selectors and information
+        const modalInfo = await browser.execute(() => {
+            const info = {};
+
+            // Add Task Modal main container
+            const modal = document.querySelector('[role="dialog"]') || document.querySelector('.modal') || document.querySelector('[class*="modal"]');
+            info.modalSelector = modal ? modal.getAttribute('data-testid') || modal.className : 'NOT FOUND';
+
+            // Case dropdown
+            const caseDropdown = document.querySelector('[data-testid*="case"]') || document.querySelector('[id*="case"]') || Array.from(document.querySelectorAll('button')).find(btn => btn.textContent.includes('Select a Case'));
+            info.caseDropdownSelector = caseDropdown ? (caseDropdown.getAttribute('data-testid') || caseDropdown.id || caseDropdown.className) : 'NOT FOUND';
+
+            // Assign To dropdown - extract all names
+            const assignToDropdown = Array.from(document.querySelectorAll('button, select, [role="combobox"]')).find(el => el.textContent.includes('Assign To') || el.textContent.includes('KALEB') || el.setAttribute?.('aria-label')?.includes('Assign'));
+            info.assignToDropdownSelector = assignToDropdown ? (assignToDropdown.getAttribute('data-testid') || assignToDropdown.id || assignToDropdown.className) : 'NOT FOUND';
+
+            // Look for all Assign To people in any dropdown/select/list
+            const allButtonsAndSelects = Array.from(document.querySelectorAll('button, option, [role="option"], li, div[class*="option"]'));
+            const assignToNames = [];
+            allButtonsAndSelects.forEach(el => {
+                const text = el.textContent?.trim();
+                if (text && (text.includes('CARPENTER') || text.includes('KALEB') || text.match(/^[A-Z\s]+$/) && text.length > 3)) {
+                    if (!assignToNames.includes(text)) {
+                        assignToNames.push(text);
+                    }
+                }
+            });
+            info.assignToNames = assignToNames.slice(0, 20); // First 20 found
+
+            // Milestone dropdown
+            const milestoneDropdown = Array.from(document.querySelectorAll('button, select, [role="combobox"]')).find(el => el.textContent.includes('Milestone') || el.textContent.includes('#1'));
+            info.milestoneDropdownSelector = milestoneDropdown ? (milestoneDropdown.getAttribute('data-testid') || milestoneDropdown.id || milestoneDropdown.className) : 'NOT FOUND';
+
+            // Task to Complete field
+            const taskField = document.querySelector('[placeholder*="task"], [placeholder*="Task"], textarea, input[type="text"]');
+            info.taskFieldSelector = taskField ? (taskField.getAttribute('data-testid') || taskField.id || taskField.getAttribute('placeholder') || taskField.className) : 'NOT FOUND';
+
+            // Billable checkbox
+            const billableCheckbox = Array.from(document.querySelectorAll('input[type="checkbox"], label')).find(el => el.textContent.includes('Billable') || el.getAttribute?.('aria-label')?.includes('Billable'));
+            info.billableCheckboxSelector = billableCheckbox ? (billableCheckbox.getAttribute('data-testid') || billableCheckbox.id || billableCheckbox.className) : 'NOT FOUND';
+
+            // Due By checkbox
+            const dueByCheckbox = Array.from(document.querySelectorAll('input[type="checkbox"], label')).find(el => el.textContent.includes('Due By') || el.getAttribute?.('aria-label')?.includes('Due'));
+            info.dueByCheckboxSelector = dueByCheckbox ? (dueByCheckbox.getAttribute('data-testid') || dueByCheckbox.id || dueByCheckbox.className) : 'NOT FOUND';
+
+            // Date picker / Calendar button
+            const datePickerButton = Array.from(document.querySelectorAll('button, [role="button"]')).find(el => el.textContent.includes('Select a date') || el.getAttribute?.('aria-label')?.includes('date') || el.className.includes('calendar'));
+            info.datePickerSelector = datePickerButton ? (datePickerButton.getAttribute('data-testid') || datePickerButton.id || datePickerButton.className) : 'NOT FOUND';
+
+            // Cancel button
+            const cancelButton = Array.from(document.querySelectorAll('button')).find(el => el.textContent.toLowerCase().includes('cancel'));
+            info.cancelButtonSelector = cancelButton ? (cancelButton.getAttribute('data-testid') || cancelButton.id || cancelButton.className) : 'NOT FOUND';
+
+            // Log all collected info
+            console.log('=== ADD TASK MODAL SELECTORS ===');
+            console.log(JSON.stringify(info, null, 2));
+
+            return info;
+        });
+
+        console.log('\n=== EXTRACTED MODAL INFO ===');
+        console.log(JSON.stringify(modalInfo, null, 2));
+
+        // Try to click Cancel to close modal safely
+        const cancelBtn = await $('button=Cancel').catch(() => null);
+        if (cancelBtn) {
+            await cancelBtn.click();
+        }
+
+        expect(modalInfo).toBeDefined();
+    });
+});
