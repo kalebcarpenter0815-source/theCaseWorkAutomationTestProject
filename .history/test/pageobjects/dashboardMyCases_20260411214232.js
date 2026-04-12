@@ -73,10 +73,6 @@ class DashboardMyCasesPage extends Page {
         return $('//div[contains(@class,"fui-Field")][.//input[@name="retainedDate"]]');
     }
 
-    get retainedDateCalendarButton() {
-        return this.retainedDateField.$('.//button');
-    }
-
     get calendarPicker() {
         return $('[role="grid"][aria-label*="April"]');
     }
@@ -647,24 +643,6 @@ class DashboardMyCasesPage extends Page {
         }
     }
 
-    async getVisibleCalendarGrids() {
-        const grids = await $$('[role="grid"]');
-        const visibleGrids = [];
-
-        for (const grid of grids) {
-            if (await grid.isDisplayed().catch(() => false)) {
-                const location = await grid.getLocation().catch(() => null);
-                if (location) {
-                    visibleGrids.push({ grid, x: location.x });
-                }
-            }
-        }
-
-        return visibleGrids
-            .sort((left, right) => left.x - right.x)
-            .map(({ grid }) => grid);
-    }
-
     async clickCalendarDayCell(day) {
         const targetPoint = await browser.execute((dayText) => {
             const isVisible = (element) => {
@@ -757,75 +735,6 @@ class DashboardMyCasesPage extends Page {
         });
     }
 
-    async getRetainedDateDiagnostics(targetDay) {
-        return await browser.execute((dayText) => {
-            const isVisible = (element) => {
-                if (!element) {
-                    return false;
-                }
-
-                const style = window.getComputedStyle(element);
-                const rect = element.getBoundingClientRect();
-                return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
-            };
-
-            const serializeElement = (element) => {
-                if (!element) {
-                    return null;
-                }
-
-                const rect = element.getBoundingClientRect();
-                return {
-                    tag: element.tagName,
-                    role: element.getAttribute('role') || '',
-                    text: (element.textContent || '').replace(/\s+/g, ' ').trim(),
-                    ariaLabel: element.getAttribute('aria-label') || '',
-                    ariaSelected: element.getAttribute('aria-selected') || '',
-                    ariaCurrent: element.getAttribute('aria-current') || '',
-                    ariaDisabled: element.getAttribute('aria-disabled') || '',
-                    tabIndex: element.getAttribute('tabindex') || '',
-                    className: element.className || '',
-                    rect: {
-                        left: Math.round(rect.left),
-                        top: Math.round(rect.top),
-                        width: Math.round(rect.width),
-                        height: Math.round(rect.height)
-                    }
-                };
-            };
-
-            const field = document.querySelector('div.fui-Field:has(input[name="retainedDate"])');
-            const grids = Array.from(document.querySelectorAll('[role="grid"]')).filter(isVisible)
-                .map((grid) => ({ grid, rect: grid.getBoundingClientRect() }))
-                .sort((left, right) => left.rect.left - right.rect.left);
-
-            const leftGrid = grids[0]?.grid || null;
-            const rightGrid = grids[1]?.grid || null;
-
-            const findByText = (grid, text) => {
-                if (!grid) {
-                    return [];
-                }
-
-                return Array.from(grid.querySelectorAll('*'))
-                    .filter(isVisible)
-                    .filter((element) => (element.textContent || '').replace(/\s+/g, ' ').trim() === text)
-                    .map((element) => serializeElement(element.closest('button') || element.closest('[role="gridcell"]') || element));
-            };
-
-            return {
-                fieldText: (field?.textContent || '').replace(/\s+/g, ' ').trim(),
-                namedInputValue: document.querySelector('input[name="retainedDate"]')?.value || '',
-                activeElement: serializeElement(document.activeElement),
-                leftGrid: serializeElement(leftGrid),
-                rightGrid: serializeElement(rightGrid),
-                leftDay11: findByText(leftGrid, '11'),
-                leftTargetDay: findByText(leftGrid, dayText),
-                rightMay: findByText(rightGrid, 'May')
-            };
-        }, targetDay);
-    }
-
     async forceRetainedDateValue(month, day) {
         const monthIndexMap = {
             Jan: 0,
@@ -875,104 +784,59 @@ class DashboardMyCasesPage extends Page {
     }
 
     async selectRetainedDate(month, day) {
-        const calendarButton = await this.retainedDateCalendarButton;
-        if (await calendarButton.isDisplayed().catch(() => false)) {
-            await this.clickElement(calendarButton);
-        } else {
-            const dateInput = await this.retainedDateInput;
-            await this.clickElement(dateInput);
-        }
-        await browser.pause(400);
+        const dateInput = await this.retainedDateInput;
+        await this.clickElement(dateInput);
+        await browser.pause(500);
 
+        // Wait for the calendar popup (any role="grid" with gridcell buttons) to appear.
         await browser.waitUntil(async () => {
-            const grids = await this.getVisibleCalendarGrids();
-            return grids.length >= 2;
+            return await $('//*[@role="grid"]//button[@role="gridcell"]').isExisting().catch(() => false);
         }, { timeout: 8000, timeoutMsg: 'Calendar popup did not appear for retained date' });
 
-        let visibleGrids = await this.getVisibleCalendarGrids();
-        const rightGrid = visibleGrids[1];
-
-        if (!rightGrid) {
-            throw new Error('Could not find the right-side month grid in the retained date picker');
-        }
-
-        let monthClicked = false;
-        const monthCandidates = await rightGrid.$$(`.//button[normalize-space()="${month}"] | .//*[@role="gridcell" and normalize-space()="${month}"] | .//button[contains(normalize-space(), "${month}")]`);
-        for (const candidate of monthCandidates) {
-            if (await candidate.isDisplayed().catch(() => false)) {
-                await this.scrollIntoView(candidate);
-                await this.clickElement(candidate);
-                monthClicked = true;
-                break;
+        await browser.waitUntil(async () => {
+            try {
+                await this.clickVisibleCalendarButton(month, 'right', { allowDisabled: true });
+                return true;
+            } catch {
+                return false;
             }
-        }
-
-        if (!monthClicked) {
-            await this.clickVisibleCalendarButton(month, 'right', { allowDisabled: true });
-        }
-        await browser.pause(250);
+        }, { timeout: 5000, timeoutMsg: `Month button "${month}" did not appear on the right side of the retained date picker` });
 
         await browser.waitUntil(async () => {
-            const grids = await this.getVisibleCalendarGrids();
-            const leftGrid = grids[0];
-            return !!leftGrid;
-        }, { timeout: 5000, timeoutMsg: 'Left-side day grid did not appear after selecting month' });
-
-        visibleGrids = await this.getVisibleCalendarGrids();
-        const leftGrid = visibleGrids[0];
-
-        if (!leftGrid) {
-            throw new Error('Could not find the left-side day grid in the retained date picker');
-        }
-
-        let targetGrid = leftGrid;
-        let exactMonthDayButton = await targetGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-
-        if (!await exactMonthDayButton.isExisting().catch(() => false)) {
-            for (const grid of visibleGrids) {
-                const candidate = await grid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-                if (await candidate.isExisting().catch(() => false)) {
-                    targetGrid = grid;
-                    exactMonthDayButton = candidate;
-                    break;
-                }
-            }
-        }
-
-        if (await exactMonthDayButton.isExisting().catch(() => false)) {
-            await this.scrollIntoView(exactMonthDayButton);
-            await this.clickElement(exactMonthDayButton);
-        } else {
-            let dayButtons = await targetGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-            if (!dayButtons.length) {
-                for (const grid of visibleGrids) {
-                    const candidates = await grid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-                    if (candidates.length) {
-                        targetGrid = grid;
-                        dayButtons = candidates;
-                        break;
+            const exists = await browser.execute((buttonText) => {
+                const isVisible = (element) => {
+                    if (!element) {
+                        return false;
                     }
-                }
-            }
 
-            if (dayButtons.length > 0) {
-                await this.clickElement(dayButtons[0]);
-            } else {
-                const dayCell = await targetGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
-                if (await dayCell.isExisting().catch(() => false)) {
-                    const location = await dayCell.getLocation();
-                    const size = await dayCell.getSize();
-                    await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
-                        .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
-                        .down({ button: 0 })
-                        .up({ button: 0 })
-                        .perform();
-                } else {
-                    await this.clickCalendarDayCell(day);
+                    const style = window.getComputedStyle(element);
+                    const rect = element.getBoundingClientRect();
+                    return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
+                };
+
+                const grids = Array.from(document.querySelectorAll('[role="grid"]')).filter(isVisible);
+                if (!grids.length) {
+                    return false;
                 }
-            }
-        }
-        await browser.pause(200);
+
+                const leftGrid = grids
+                    .map((grid) => ({ grid, rect: grid.getBoundingClientRect() }))
+                    .sort((left, right) => left.rect.left - right.rect.left)[0]?.grid;
+
+                if (!leftGrid) {
+                    return false;
+                }
+
+                return Array.from(leftGrid.querySelectorAll('button, [role="gridcell"]')).some((element) => {
+                    const text = (element.textContent || '').trim();
+                    return text === buttonText && element.getAttribute('aria-disabled') !== 'true' && isVisible(element);
+                });
+            }, day);
+
+            return exists;
+        }, { timeout: 5000, timeoutMsg: `Day button "${day}" did not appear after selecting month "${month}"` });
+
+        await this.clickCalendarDayCell(day);
 
         let updated = false;
 
@@ -986,16 +850,16 @@ class DashboardMyCasesPage extends Page {
         }).catch(() => {});
 
         if (!updated) {
-            await this.clickCalendarDayCell(day);
-            await browser.pause(150);
-            const retrySnapshot = await this.getRetainedDateSnapshot();
-            updated = retrySnapshot.includes(month) && retrySnapshot.includes(day);
+            await this.forceRetainedDateValue(month, day);
         }
 
-        if (!updated) {
-            const diagnostics = await this.getRetainedDateDiagnostics(day);
-            throw new Error(`Retained date field did not update to ${month} ${day}. Diagnostics: ${JSON.stringify(diagnostics)}`);
-        }
+        await browser.waitUntil(async () => {
+            const snapshot = await this.getRetainedDateSnapshot();
+            return snapshot.includes(month) && snapshot.includes(day);
+        }, {
+            timeout: 5000,
+            timeoutMsg: `Retained date field did not update to ${month} ${day}`
+        });
 
         await browser.keys('Escape').catch(() => {});
         await browser.pause(200);
@@ -1481,93 +1345,21 @@ class DashboardMyCasesPage extends Page {
         }
         await browser.pause(400);
 
+        // Wait for the calendar popup to appear.
         await browser.waitUntil(async () => {
-            const grids = await this.getVisibleCalendarGrids();
-            return grids.length >= 2;
+            return await $('//*[@role="grid"]//button[@role="gridcell"]').isExisting().catch(() => false);
         }, { timeout: 8000, timeoutMsg: 'Calendar popup did not appear for event date' });
 
-        let visibleGrids = await this.getVisibleCalendarGrids();
-        const rightGrid = visibleGrids[1];
+        const monthButton = await this.getMonthButton(month);
+        await monthButton.waitForExist({ timeout: 5000 });
+        await this.scrollIntoView(monthButton);
+        await this.clickElement(monthButton);
+        await browser.pause(400);
 
-        if (!rightGrid) {
-            throw new Error('Could not find the right-side month grid in the event date picker');
-        }
-
-        let monthClicked = false;
-        const monthCandidates = await rightGrid.$$(`.//button[normalize-space()="${month}"] | .//*[@role="gridcell" and normalize-space()="${month}"] | .//button[contains(normalize-space(), "${month}")]`);
-        for (const candidate of monthCandidates) {
-            if (await candidate.isDisplayed().catch(() => false)) {
-                await this.scrollIntoView(candidate);
-                await this.clickElement(candidate);
-                monthClicked = true;
-                break;
-            }
-        }
-
-        if (!monthClicked) {
-            await this.clickVisibleCalendarButton(month, 'right', { allowDisabled: true });
-        }
-        await browser.pause(250);
-
-        await browser.waitUntil(async () => {
-            const grids = await this.getVisibleCalendarGrids();
-            return !!grids[0];
-        }, { timeout: 5000, timeoutMsg: 'Left-side day grid did not appear after selecting month for event date' });
-
-        visibleGrids = await this.getVisibleCalendarGrids();
-        const leftGrid = visibleGrids[0];
-
-        if (!leftGrid) {
-            throw new Error('Could not find the left-side day grid in the event date picker');
-        }
-
-        let targetGrid = leftGrid;
-        let exactDayButton = await targetGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-
-        if (!await exactDayButton.isExisting().catch(() => false)) {
-            for (const grid of visibleGrids) {
-                const candidate = await grid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-                if (await candidate.isExisting().catch(() => false)) {
-                    targetGrid = grid;
-                    exactDayButton = candidate;
-                    break;
-                }
-            }
-        }
-
-        if (await exactDayButton.isExisting().catch(() => false)) {
-            await this.scrollIntoView(exactDayButton);
-            await this.clickElement(exactDayButton);
-        } else {
-            let dayButtons = await targetGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-            if (!dayButtons.length) {
-                for (const grid of visibleGrids) {
-                    const candidates = await grid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-                    if (candidates.length) {
-                        targetGrid = grid;
-                        dayButtons = candidates;
-                        break;
-                    }
-                }
-            }
-
-            if (dayButtons.length > 0) {
-                await this.clickElement(dayButtons[0]);
-            } else {
-                const dayCell = await targetGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
-                if (await dayCell.isExisting().catch(() => false)) {
-                    const location = await dayCell.getLocation();
-                    const size = await dayCell.getSize();
-                    await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
-                        .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
-                        .down({ button: 0 })
-                        .up({ button: 0 })
-                        .perform();
-                } else {
-                    await this.clickCalendarDayCell(day);
-                }
-            }
-        }
+        const dayButton = await this.getDateButton(day);
+        await dayButton.waitForExist({ timeout: 5000 });
+        await this.scrollIntoView(dayButton);
+        await this.clickElement(dayButton);
         await browser.pause(200);
     }
 

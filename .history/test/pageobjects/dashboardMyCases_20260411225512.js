@@ -925,51 +925,24 @@ class DashboardMyCasesPage extends Page {
             throw new Error('Could not find the left-side day grid in the retained date picker');
         }
 
-        let targetGrid = leftGrid;
-        let exactMonthDayButton = await targetGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-
-        if (!await exactMonthDayButton.isExisting().catch(() => false)) {
-            for (const grid of visibleGrids) {
-                const candidate = await grid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-                if (await candidate.isExisting().catch(() => false)) {
-                    targetGrid = grid;
-                    exactMonthDayButton = candidate;
-                    break;
-                }
-            }
-        }
-
+        const exactMonthDayButton = await leftGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
         if (await exactMonthDayButton.isExisting().catch(() => false)) {
             await this.scrollIntoView(exactMonthDayButton);
             await this.clickElement(exactMonthDayButton);
         } else {
-            let dayButtons = await targetGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-            if (!dayButtons.length) {
-                for (const grid of visibleGrids) {
-                    const candidates = await grid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-                    if (candidates.length) {
-                        targetGrid = grid;
-                        dayButtons = candidates;
-                        break;
-                    }
-                }
-            }
-
+            const dayButtons = await leftGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
             if (dayButtons.length > 0) {
                 await this.clickElement(dayButtons[0]);
             } else {
-                const dayCell = await targetGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
-                if (await dayCell.isExisting().catch(() => false)) {
-                    const location = await dayCell.getLocation();
-                    const size = await dayCell.getSize();
-                    await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
-                        .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
-                        .down({ button: 0 })
-                        .up({ button: 0 })
-                        .perform();
-                } else {
-                    await this.clickCalendarDayCell(day);
-                }
+                const dayCell = await leftGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
+                await dayCell.waitForExist({ timeout: 5000 });
+                const location = await dayCell.getLocation();
+                const size = await dayCell.getSize();
+                await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
+                    .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
+                    .down({ button: 0 })
+                    .up({ button: 0 })
+                    .perform();
             }
         }
         await browser.pause(200);
@@ -1521,51 +1494,24 @@ class DashboardMyCasesPage extends Page {
             throw new Error('Could not find the left-side day grid in the event date picker');
         }
 
-        let targetGrid = leftGrid;
-        let exactDayButton = await targetGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-
-        if (!await exactDayButton.isExisting().catch(() => false)) {
-            for (const grid of visibleGrids) {
-                const candidate = await grid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-                if (await candidate.isExisting().catch(() => false)) {
-                    targetGrid = grid;
-                    exactDayButton = candidate;
-                    break;
-                }
-            }
-        }
-
+        const exactDayButton = await leftGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
         if (await exactDayButton.isExisting().catch(() => false)) {
             await this.scrollIntoView(exactDayButton);
             await this.clickElement(exactDayButton);
         } else {
-            let dayButtons = await targetGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-            if (!dayButtons.length) {
-                for (const grid of visibleGrids) {
-                    const candidates = await grid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-                    if (candidates.length) {
-                        targetGrid = grid;
-                        dayButtons = candidates;
-                        break;
-                    }
-                }
-            }
-
+            const dayButtons = await leftGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
             if (dayButtons.length > 0) {
                 await this.clickElement(dayButtons[0]);
             } else {
-                const dayCell = await targetGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
-                if (await dayCell.isExisting().catch(() => false)) {
-                    const location = await dayCell.getLocation();
-                    const size = await dayCell.getSize();
-                    await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
-                        .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
-                        .down({ button: 0 })
-                        .up({ button: 0 })
-                        .perform();
-                } else {
-                    await this.clickCalendarDayCell(day);
-                }
+                const dayCell = await leftGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
+                await dayCell.waitForExist({ timeout: 5000 });
+                const location = await dayCell.getLocation();
+                const size = await dayCell.getSize();
+                await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
+                    .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
+                    .down({ button: 0 })
+                    .up({ button: 0 })
+                    .perform();
             }
         }
         await browser.pause(200);

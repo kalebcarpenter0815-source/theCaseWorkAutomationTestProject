@@ -925,51 +925,24 @@ class DashboardMyCasesPage extends Page {
             throw new Error('Could not find the left-side day grid in the retained date picker');
         }
 
-        let targetGrid = leftGrid;
-        let exactMonthDayButton = await targetGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-
-        if (!await exactMonthDayButton.isExisting().catch(() => false)) {
-            for (const grid of visibleGrids) {
-                const candidate = await grid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-                if (await candidate.isExisting().catch(() => false)) {
-                    targetGrid = grid;
-                    exactMonthDayButton = candidate;
-                    break;
-                }
-            }
-        }
-
+        const exactMonthDayButton = await leftGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
         if (await exactMonthDayButton.isExisting().catch(() => false)) {
             await this.scrollIntoView(exactMonthDayButton);
             await this.clickElement(exactMonthDayButton);
         } else {
-            let dayButtons = await targetGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-            if (!dayButtons.length) {
-                for (const grid of visibleGrids) {
-                    const candidates = await grid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-                    if (candidates.length) {
-                        targetGrid = grid;
-                        dayButtons = candidates;
-                        break;
-                    }
-                }
-            }
-
+            const dayButtons = await leftGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
             if (dayButtons.length > 0) {
                 await this.clickElement(dayButtons[0]);
             } else {
-                const dayCell = await targetGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
-                if (await dayCell.isExisting().catch(() => false)) {
-                    const location = await dayCell.getLocation();
-                    const size = await dayCell.getSize();
-                    await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
-                        .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
-                        .down({ button: 0 })
-                        .up({ button: 0 })
-                        .perform();
-                } else {
-                    await this.clickCalendarDayCell(day);
-                }
+                const dayCell = await leftGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
+                await dayCell.waitForExist({ timeout: 5000 });
+                const location = await dayCell.getLocation();
+                const size = await dayCell.getSize();
+                await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
+                    .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
+                    .down({ button: 0 })
+                    .up({ button: 0 })
+                    .perform();
             }
         }
         await browser.pause(200);
@@ -1481,93 +1454,21 @@ class DashboardMyCasesPage extends Page {
         }
         await browser.pause(400);
 
+        // Wait for the calendar popup to appear.
         await browser.waitUntil(async () => {
-            const grids = await this.getVisibleCalendarGrids();
-            return grids.length >= 2;
+            return await $('//*[@role="grid"]//button[@role="gridcell"]').isExisting().catch(() => false);
         }, { timeout: 8000, timeoutMsg: 'Calendar popup did not appear for event date' });
 
-        let visibleGrids = await this.getVisibleCalendarGrids();
-        const rightGrid = visibleGrids[1];
+        const monthButton = await this.getMonthButton(month);
+        await monthButton.waitForExist({ timeout: 5000 });
+        await this.scrollIntoView(monthButton);
+        await this.clickElement(monthButton);
+        await browser.pause(400);
 
-        if (!rightGrid) {
-            throw new Error('Could not find the right-side month grid in the event date picker');
-        }
-
-        let monthClicked = false;
-        const monthCandidates = await rightGrid.$$(`.//button[normalize-space()="${month}"] | .//*[@role="gridcell" and normalize-space()="${month}"] | .//button[contains(normalize-space(), "${month}")]`);
-        for (const candidate of monthCandidates) {
-            if (await candidate.isDisplayed().catch(() => false)) {
-                await this.scrollIntoView(candidate);
-                await this.clickElement(candidate);
-                monthClicked = true;
-                break;
-            }
-        }
-
-        if (!monthClicked) {
-            await this.clickVisibleCalendarButton(month, 'right', { allowDisabled: true });
-        }
-        await browser.pause(250);
-
-        await browser.waitUntil(async () => {
-            const grids = await this.getVisibleCalendarGrids();
-            return !!grids[0];
-        }, { timeout: 5000, timeoutMsg: 'Left-side day grid did not appear after selecting month for event date' });
-
-        visibleGrids = await this.getVisibleCalendarGrids();
-        const leftGrid = visibleGrids[0];
-
-        if (!leftGrid) {
-            throw new Error('Could not find the left-side day grid in the event date picker');
-        }
-
-        let targetGrid = leftGrid;
-        let exactDayButton = await targetGrid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-
-        if (!await exactDayButton.isExisting().catch(() => false)) {
-            for (const grid of visibleGrids) {
-                const candidate = await grid.$(`.//button[contains(@aria-label, "${day}, ${month}")]`);
-                if (await candidate.isExisting().catch(() => false)) {
-                    targetGrid = grid;
-                    exactDayButton = candidate;
-                    break;
-                }
-            }
-        }
-
-        if (await exactDayButton.isExisting().catch(() => false)) {
-            await this.scrollIntoView(exactDayButton);
-            await this.clickElement(exactDayButton);
-        } else {
-            let dayButtons = await targetGrid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-            if (!dayButtons.length) {
-                for (const grid of visibleGrids) {
-                    const candidates = await grid.$$(`.//button[normalize-space()="${day}" or .//*[normalize-space()="${day}"]]`);
-                    if (candidates.length) {
-                        targetGrid = grid;
-                        dayButtons = candidates;
-                        break;
-                    }
-                }
-            }
-
-            if (dayButtons.length > 0) {
-                await this.clickElement(dayButtons[0]);
-            } else {
-                const dayCell = await targetGrid.$(`.//*[@role="gridcell" and normalize-space()="${day}"]`);
-                if (await dayCell.isExisting().catch(() => false)) {
-                    const location = await dayCell.getLocation();
-                    const size = await dayCell.getSize();
-                    await browser.action('pointer', { parameters: { pointerType: 'mouse' } })
-                        .move({ x: Math.floor(location.x + (size.width / 2)), y: Math.floor(location.y + (size.height / 2)), origin: 'viewport' })
-                        .down({ button: 0 })
-                        .up({ button: 0 })
-                        .perform();
-                } else {
-                    await this.clickCalendarDayCell(day);
-                }
-            }
-        }
+        const dayButton = await this.getDateButton(day);
+        await dayButton.waitForExist({ timeout: 5000 });
+        await this.scrollIntoView(dayButton);
+        await this.clickElement(dayButton);
         await browser.pause(200);
     }
 
