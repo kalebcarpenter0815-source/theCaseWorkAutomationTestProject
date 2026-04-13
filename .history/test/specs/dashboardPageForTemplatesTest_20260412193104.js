@@ -1,0 +1,61 @@
+import { expect } from "@wdio/globals";
+import dashboardPage from "../pageobjects/dashboardPage.js";
+import dashboardTemplatesPage from "../pageobjects/dashboardTemplates.js";
+import loginHelper from "../utils/loginHelper.js";
+
+const BASE_TEMPLATES = [
+    "Pikachu",
+    "You're the Best Around",
+    "You're the Best Around-Copy",
+];
+
+const COPY_NAMES_TO_NORMALIZE = [
+    "Pikachu-Copy",
+    "You're the Best Around-Copy",
+    "You're the Best Around-Copy-Copy",
+    "You're the Best Around-Copy-Copy-Copy",
+];
+
+describe("Dashboard Templates Card Tests", () => {
+    before(async () => {
+        await loginHelper.loginAsDefaultUser();
+        await dashboardPage.waitForDashboard();
+    });
+
+    it("should open Templates page, verify url, and land on Case Templates", async () => {
+        await dashboardTemplatesPage.goToTemplatesPage();
+        await dashboardTemplatesPage.ensureCaseTemplatesTabIsOpen();
+
+        await expect(browser).toHaveUrlContaining("/templates");
+        await expect(dashboardTemplatesPage.templatesHeader).toBeDisplayed();
+        await expect(dashboardTemplatesPage.caseTemplatesCardTitle).toBeDisplayed();
+    });
+
+    it("should copy selected rows and then remove only extra copy rows", async () => {
+        await dashboardTemplatesPage.goToTemplatesPage();
+        await dashboardTemplatesPage.ensureCaseTemplatesTabIsOpen();
+
+        const beforeCounts = {};
+        for (const copyName of COPY_NAMES_TO_NORMALIZE) {
+            beforeCounts[copyName] = await dashboardTemplatesPage.countTemplatesByExactName(copyName);
+        }
+
+        for (const baseTemplate of BASE_TEMPLATES) {
+            await dashboardTemplatesPage.copyTemplateAndConfirm(baseTemplate);
+        }
+
+        for (const copyName of COPY_NAMES_TO_NORMALIZE) {
+            const expectedCount = beforeCounts[copyName] || 0;
+            await dashboardTemplatesPage.deleteTemplatesUntilCount(copyName, expectedCount);
+        }
+
+        await expect(await dashboardTemplatesPage.countTemplatesByExactName("Pikachu")).toBeGreaterThan(0);
+        await expect(await dashboardTemplatesPage.countTemplatesByExactName("You're the Best Around")).toBeGreaterThan(0);
+        await expect(await dashboardTemplatesPage.countTemplatesByExactName("You're the Best Around-Copy")).toBeGreaterThan(0);
+    });
+
+    it.skip("should run full Add/Edit Case Template form walk-through", async () => {
+        // This is intentionally skipped for now.
+        // We can add this in the next step with stable selectors for every field and popup.
+    });
+});
