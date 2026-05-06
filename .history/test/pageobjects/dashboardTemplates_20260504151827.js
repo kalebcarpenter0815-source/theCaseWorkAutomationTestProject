@@ -1,0 +1,136 @@
+import { $, expect } from "@wdio/globals";
+import Page from "./page.js";
+
+class DashboardTemplatesPage extends Page {
+    get templatesNavButton() {
+        return $('//*[@data-testid="vert-nav-templates"]');
+    }
+
+    async open() {
+        await this.templatesNavButton.click();
+    }
+
+    get caseTemplatesInfoIconBtn() {
+        return $('#infolabel-r2mg__infoButton');
+    }
+
+    async clickCaseTemplatesInfoIcon() {
+        await this.caseTemplatesInfoIconBtn.click();
+    }
+
+    get caseTemplatesInformationText() {
+        return $('//span[contains(text(), "Easily create new cases with predefined types and data using Case Templates.")]');
+    }
+
+    async getCaseTemplatesInformationText() {   
+        return await this.caseTemplatesInformationText.getText();
+        expect(await this.caseTemplatesInformationText.getText()).toBe("Easily create new cases with predefined types and data using Case Templates.");
+    }
+
+    get CaseTemplatesNewTemplateButton() {
+        return $('//button[@data-testid="case-templates-new-template-button"]');
+    }
+
+    async clickCaseTemplatesNewTemplateButton() {
+        await this.CaseTemplatesNewTemplateButton.click();
+    }
+
+    get addEditCaseTemplateHeader() {
+        return $('//span[contains(text(), "Add/Edit Case Template")]');
+    }
+
+    async getAddEditCaseTemplateHeaderText() { 
+        return await this.addEditCaseTemplateHeader.getText();
+        expect(await this.addEditCaseTemplateHeader.getText()).toBe("Add/Edit Case Template");
+    }
+
+    // We will then do Case Type info icon button and text as well as the Allowed Statuses info icon button and text and Engagement Template info icon button and text in the same way as before to make sure that when we are redirected to another page, that we come back, so we dont enter anything first because it is useless since it doesn't save you input.
+
+    get allowedStatusesInfoIconBtn() {
+        return $('//button[@id="infolabel-rkr__infoButton"]');
+    }
+
+    async clickAllowedStatusesInfoIcon() {
+        await this.allowedStatusesInfoIconBtn.click();
+    }
+
+    get allowedStatusesClickHereButton() {
+        return $('//span[contains(text(), "Click here")]');
+    }
+
+    async clickAllowedStatusesClickHereButton() {
+        await this.allowedStatusesClickHereButton.click();
+        expect(await this.allowedStatusesClickHereButton.getText()).toBe("Click here");
+    }
+
+    get descriptionInfoIconBtn() {
+        return $('#infolabel-rkt__infoButton');
+    }
+
+    async clickDescriptionInfoIcon() {
+        await this.descriptionInfoIconBtn.click();
+        expect(await this.descriptionInfoIconBtn.isDisplayed()).toBeTruthy();
+    }
+
+    get shortDescriptionFieldBtn() {
+        return $('#infolabel-rl0__infoButton');
+    }
+
+    async clickShortDescriptionField() {
+        await this.shortDescriptionFieldBtn.click();
+        expect(await this.shortDescriptionFieldBtn.isDisplayed()).toBeTruthy();
+    }
+
+    get overviewInfoIconBtn() {
+        return $('#infolabel-rl5__infoButton');
+    }
+
+    async clickOverviewInfoIcon() {
+        await this.overviewInfoIconBtn.click();
+        expect(await this.overviewInfoIconBtn.isDisplayed()).toBeTruthy();
+    }
+
+    get initialNoteInfoIconBtn() {
+        return $('#infolabel-rl7__infoButton');
+    }
+
+    async clickInitialNoteInfoIcon() {
+        await this.initialNoteInfoIconBtn.click();
+        expect(await this.initialNoteInfoIconBtn.isDisplayed()).toBeTruthy();
+    }
+
+    get engagementTemplateInfoIconBtn() {
+        return $('#infolabel-rla__infoButton');
+    }
+
+    async clickEngagementTemplateInfoIcon() {
+        await this.engagementTemplateInfoIconBtn.click();
+        expect(await this.engagementTemplateInfoIconBtn.isDisplayed()).toBeTruthy();
+    }
+
+    get milestoneTemplateInfoIconBtn() {
+        return $('#infolabel-rle__infoButton');
+    }
+
+    async clickMilestoneTemplateInfoIcon() {
+        await this.milestoneTemplateInfoIconBtn.click();
+        expect(await this.milestoneTemplateInfoIconBtn.isDisplayed()).toBeTruthy();
+    }
+
+    get eventsTemplateInfoIconBtn() {
+        return $('#infolabel-rlr__infoButton');
+    }
+
+    async clickEventsTemplateInfoIcon() {
+        await this.eventsTemplateInfoIconBtn.click();
+        expect(await this.eventsTemplateInfoIconBtn.isDisplayed()).toBeTruthy();
+    }
+
+    // Now that we have all the info icon buttons and text, we will now do all the text fields and dropdowns to make sure that they are all displayed and enabled when we click on them, but we will not enter any text or select any options because it is useless since it doesn't save your input.
+
+    get caseTemplateNameField() {
+        return $('#case-template-name');
+    }
+}
+
+export default new DashboardTemplatesPage();

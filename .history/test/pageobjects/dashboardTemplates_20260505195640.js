@@ -1,0 +1,2012 @@
+import { $, expect } from "@wdio/globals";
+import dashboardPage from "./dashboardPage.js";
+import dashboardTemplatesWorkflowPage from "./dashboardTemplatesWorkflow.js";
+
+const TEMPLATES_URL = "https://app.thecasework.com/templates";
+const CASE_TEMPLATE_NAME = "Obligation Template";
+const CASE_TEMPLATE_DESCRIPTION = "Performance Obligation (Deliverables): The Vendor shall deliver the [Insert Project Name] components within [Number] business days of the Effective Date.";
+const SHORT_DESCRIPTION_FIELD_NAME = "Description / Action / Proceeding";
+const SHORT_DESCRIPTION_DEFAULT_TEXT = "Times New Roman";
+const OVERVIEW_TEXT = "This pretend case concerns a disputed commercial contract, alleged missed deliverables, and related copyright and payment obligations that require document review, witness interviews, status tracking, and preparation for a formal resolution timeline.";
+const INITIAL_NOTE_TEXT = "In this case for the alleged guilty party, the party is innocent until proven guilty by the court of law.";
+const MILESTONE_NAME = "Legal Issues Success";
+const MILESTONE_DESCRIPTION = "We have won the case between copywriting and copyright infringement.";
+const MILESTONE_DELIVERABLES = "The case pertained to about $1 million dollars. And the total cost for the lawyer and other legal issues you must pay is around $6,345 plus tax for our services. Thank you!";
+const MILESTONE_DUE_DAYS = "23";
+const MILESTONE_EVENT_NAME = "The day we had won the lawsuit case.";
+const MILESTONE_EVENT_DAYS = "31";
+const MILESTONE_EVENT_DESCRIPTION = "Another lawsuit case against Schmidt United LLC for copyright infringement and copyright issues, which is a different company client is currently being sued by.";
+const MILESTONE_TASK_TEXT = "Mr. Quagmire v. Schmidt United LLC legal issue case";
+const TEMPLATE_EVENT_NAME = "Quagmires Legal Issues v. The United States";
+const TEMPLATE_EVENT_DAYS = "20";
+const TEMPLATE_EVENT_DESCRIPTION = "Need to work on Quagmires new lawsuit";
+const CASE_TYPE_SEQUENCE = ["alive going", "AUTOTEST_CaseType", "Samsonite"];
+const ENGAGEMENT_TEMPLATE_SEQUENCE = ["custom-Copy", "new copy", "Engagement? To whom?", "Copyright - Retention Agreement", "Standard Billing and Payment Terms"];
+const ALLOWED_STATUS_GROUPS = [
+    { group: "New", options: ["Retaining"] },
+    { group: "Active", options: ["Initial Review", "Discovery", "Initial Report", "Testifying / Depo", "Final Report", "Active Customer"] },
+    { group: "Completed", options: ["Completed", "Awaiting Payments"] },
+    { group: "Closed", options: ["Closed"] },
+    { group: "Removed", options: ["Removed"] },
+];
+
+class DashboardTemplatesPage {
+    get workflow() {
+        return dashboardTemplatesWorkflowPage;
+    }
+
+    async smallPause(duration = 1200) {
+        await browser.pause(duration);
+    }
+
+    async waitForDashboardAndOpenTemplates() {
+        await dashboardPage.waitForDashboard();
+        await browser.waitUntil(async () => {
+            const currentUrl = await browser.getUrl();
+            return currentUrl.includes("dashboard") || currentUrl === "https://app.thecasework.com/";
+        }, {
+            timeout: 15000,
+            interval: 250,
+            timeoutMsg: "Expected to land on the Dashboard page after login.",
+        });
+
+        await this.workflow.openCaseTemplatesLanding();
+        await this.expectOnCaseTemplatesLanding();
+    }
+
+    async expectOnCaseTemplatesLanding() {
+        await this.workflow.waitForExactTemplatesUrl();
+        await expect(await browser.getUrl()).toBe(TEMPLATES_URL);
+        await expect(this.workflow.caseTemplatesCardTitle).toBeDisplayed();
+        await expect(this.workflow.newTemplateButton).toBeDisplayed();
+    }
+
+    async expectOnAddEditCaseTemplatePage() {
+        await expect(this.workflow.addEditCaseTemplateHeader).toBeDisplayed();
+        await expect(await browser.getUrl()).toBe(TEMPLATES_URL);
+    }
+
+    getInfoButtonNearText(nearbyText, rootElement = null) {
+        const selector = `.//*[contains(normalize-space(),${this.workflow.escapeXPathText(nearbyText)})]/ancestor::*[self::div or self::section][1]//button[contains(@class,"InfoButton") or starts-with(@id,"infolabel-") or @aria-label="information"][1] | .//label[contains(normalize-space(),${this.workflow.escapeXPathText(nearbyText)})]/ancestor::*[self::div or self::section][1]//button[contains(@class,"InfoButton") or starts-with(@id,"infolabel-") or @aria-label="information"][1]`;
+        return rootElement ? rootElement.$(selector) : $(selector.replace(/\.\//g, "//"));
+    }
+
+    async getVisiblePopoverOrTooltip() {
+        const popup = $('(//div[@role="tooltip" or @role="dialog" or contains(@class,"Popover") or contains(@class,"Tooltip")][not(@aria-hidden="true")])[last()]');
+        await popup.waitForDisplayed({ timeout: 5000 });
+        return popup;
+    }
+
+    async openInfoNearTextAndExpectContent(nearbyText, rootElement = null) {
+        const button = this.getInfoButtonNearText(nearbyText, rootElement);
+        await this.workflow.safeClick(button);
+        const popup = await this.getVisiblePopoverOrTooltip();
+        const popupText = (await popup.getText()).trim();
+        await expect(popupText.length > 0).toBe(true);
+        await this.smallPause();
+        await this.workflow.safeClick(button);
+        await browser.waitUntil(async () => !(await popup.isDisplayed().catch(() => false)), {
+            timeout: 5000,
+            interval: 150,
+            timeoutMsg: `Expected the info popup for ${nearbyText} to close.`,
+        }).catch(async () => {
+            await this.workflow.closeInfoPopoverIfPresent();
+        });
+    }
+
+    async startNewTemplate() {
+        await this.workflow.safeClick(this.workflow.newTemplateButton);
+        await this.expectOnAddEditCaseTemplatePage();
+    }
+
+    async clearAndTypeVisibleInput(element, text) {
+        await this.workflow.clearAndType(element, text);
+        await expect(element).toHaveValue(text);
+    }
+
+    async fillTemplateHeaderFields() {
+        await this.clearAndTypeVisibleInput(this.workflow.templateNameInput, CASE_TEMPLATE_NAME);
+        await this.workflow.clearAndType(this.workflow.templateDescriptionInput, CASE_TEMPLATE_DESCRIPTION);
+        await expect(this.workflow.templateDescriptionInput).toHaveValue(CASE_TEMPLATE_DESCRIPTION);
+    }
+
+    getOptionByText(text) {
+        const escapedText = this.workflow.escapeXPathText(text);
+        return $(`//*[@role="option" and (normalize-space()=${escapedText} or .//*[normalize-space()=${escapedText}])] | //*[@role="menuitemcheckbox" and (normalize-space()=${escapedText} or .//*[normalize-space()=${escapedText}])] | //*[@role="menuitem" and (normalize-space()=${escapedText} or .//*[normalize-space()=${escapedText}])] | //div[normalize-space()=${escapedText}]`);
+    }
+
+    async selectDropdownSequence(triggerElement, optionNames) {
+        for (const optionName of optionNames) {
+            await this.workflow.safeClick(triggerElement);
+            const option = this.getOptionByText(optionName);
+            await option.waitForDisplayed({ timeout: 5000 });
+            await this.workflow.safeClick(option);
+            await this.smallPause(250);
+        }
+    }
+
+    async selectCaseTypesInOrder() {
+        await this.openInfoNearTextAndExpectContent("Case Type");
+        await this.selectDropdownSequence(this.workflow.caseTypeDropdown, CASE_TYPE_SEQUENCE);
+    }
+
+    getSectionRoot(sectionTitle) {
+        const escapedTitle = this.workflow.escapeXPathText(sectionTitle);
+        return $(`//*[self::h1 or self::h2 or self::h3 or self::span or self::div][normalize-space()=${escapedTitle}]/ancestor::*[self::section or self::div][1]`);
+    }
+
+    getCheckboxByText(text, rootElement = null) {
+        const escapedText = this.workflow.escapeXPathText(text);
+        const selector = `.//*[@role="checkbox" and (.//*[normalize-space()=${escapedText}] or @aria-label=${escapedText})] | .//label[normalize-space()=${escapedText}]//input[@type="checkbox"] | .//label[.//*[normalize-space()=${escapedText}]]//input[@type="checkbox"] | .//input[@type="checkbox" and (@aria-label=${escapedText} or @name=${escapedText})]`;
+        return rootElement ? rootElement.$(selector) : $(selector.replace(/\.\//g, "//"));
+    }
+
+    async selectAllowedStatuses() {
+        await this.openInfoNearTextAndExpectContent("Allowed Statuses");
+        const container = await this.workflow.getAllowedStatusesContainer();
+        await expect(container).toBeDisplayed();
+
+        for (const { group, options } of ALLOWED_STATUS_GROUPS) {
+            await this.workflow.expandSectionByTextIfPresent(group);
+            for (const option of options) {
+                const checkbox = this.getCheckboxByText(option, container);
+                const exists = await checkbox.isExisting().catch(() => false);
+                if (!exists) {
+                    await this.workflow.expandAllAllowedStatusGroups();
+                }
+                await this.workflow.ensureStatusChecked(option);
+            }
+        }
+    }
+
+    async fillDescriptionAndOverviewSection() {
+        await this.openInfoNearTextAndExpectContent("Description and Overview");
+        await this.openInfoNearTextAndExpectContent("Short Description Field");
+        await this.workflow.clearAndType(this.workflow.shortDescriptionFieldNameInput, "");
+        await this.workflow.clearAndType(this.workflow.shortDescriptionFieldNameInput, SHORT_DESCRIPTION_FIELD_NAME);
+        await expect(this.workflow.shortDescriptionFieldNameInput).toHaveValue(SHORT_DESCRIPTION_FIELD_NAME);
+        await this.workflow.clearAndType(this.workflow.shortDescriptionDefaultTextInput, SHORT_DESCRIPTION_DEFAULT_TEXT);
+        await expect(this.workflow.shortDescriptionDefaultTextInput).toHaveValue(SHORT_DESCRIPTION_DEFAULT_TEXT);
+        await this.openInfoNearTextAndExpectContent("Overview");
+        await this.workflow.clearAndType(this.workflow.overviewInput, OVERVIEW_TEXT);
+        await expect(this.workflow.overviewInput).toHaveValue(OVERVIEW_TEXT);
+        await this.openInfoNearTextAndExpectContent("Initial Note");
+        await this.workflow.clearAndType(this.workflow.initialNoteInput, INITIAL_NOTE_TEXT);
+        await expect(this.workflow.initialNoteInput).toHaveValue(INITIAL_NOTE_TEXT);
+    }
+
+    async fillEngagementTemplateSection() {
+        await this.openInfoNearTextAndExpectContent("Engagement Template");
+        await this.selectDropdownSequence(this.workflow.engagementTemplateCombobox, ENGAGEMENT_TEMPLATE_SEQUENCE);
+    }
+
+    getDialogByTitle(title) {
+        const escapedTitle = this.workflow.escapeXPathText(title);
+        return $(`(//div[@role="dialog"][.//*[self::h1 or self::h2 or self::h3][normalize-space()=${escapedTitle}] or .//*[normalize-space()=${escapedTitle}]])[last()]`);
+    }
+
+    async waitForDialog(title) {
+        const dialog = this.getDialogByTitle(title);
+        await dialog.waitForDisplayed({ timeout: 8000 });
+        return dialog;
+    }
+
+    async fillDialogField(dialog, labelText, text) {
+        const wrote = await this.workflow.clearAndTypeByLabelFromRootIfPresent(dialog, labelText, text);
+        if (!wrote) {
+            throw new Error(`Could not find field with label ${labelText} in dialog.`);
+        }
+    }
+
+    async setCheckboxInDialog(dialog, labelText) {
+        const checkbox = this.getCheckboxByText(labelText, dialog);
+        await checkbox.waitForExist({ timeout: 5000 });
+        await this.workflow.ensureStatusChecked(labelText);
+    }
+
+    async clickButtonInRoot(rootElement, buttonText) {
+        const clicked = await this.workflow.clickButtonByTextFromRootIfPresent(rootElement, buttonText);
+        if (!clicked) {
+            throw new Error(`Could not click button ${buttonText}.`);
+        }
+    }
+
+    async findRowByText(rootElement, rowText) {
+        const escapedText = this.workflow.escapeXPathText(rowText);
+        const row = await rootElement.$(`.//tr[.//*[normalize-space()=${escapedText} or contains(normalize-space(),${escapedText})]] | .//div[@role="row"][.//*[normalize-space()=${escapedText} or contains(normalize-space(),${escapedText})]]`);
+        await row.waitForDisplayed({ timeout: 8000 });
+        return row;
+    }
+
+    async openRowMenu(rootElement, rowText) {
+        const row = await this.findRowByText(rootElement, rowText);
+        await this.workflow.jsScrollIntoView(row);
+        await row.moveTo();
+        const menuButton = await row.$('.//button[last()]');
+        await menuButton.waitForDisplayed({ timeout: 5000 });
+        await this.workflow.safeClick(menuButton);
+    }
+
+    async clickMenuAction(actionText) {
+        const escapedText = this.workflow.escapeXPathText(actionText);
+        const action = $(`//*[@role="menuitem" and (normalize-space()=${escapedText} or .//*[normalize-space()=${escapedText}])] | //button[normalize-space()=${escapedText} or .//*[normalize-space()=${escapedText}]]`);
+        await action.waitForDisplayed({ timeout: 5000 });
+        await this.workflow.safeClick(action);
+    }
+
+    async answerConfirmRemoval(answer) {
+        const dialog = await this.waitForDialog("Confirm Removal");
+        await this.clickButtonInRoot(dialog, answer);
+        await this.workflow.waitForDialogToClose(dialog);
+    }
+
+    async createMilestoneFromTemplatePage() {
+        await this.openInfoNearTextAndExpectContent("Milestones");
+        await this.workflow.expandSectionByTextIfPresent("Milestones");
+        await this.workflow.clickButtonByTextIfPresent("Add Milestone");
+        const milestoneDialog = await this.waitForDialog("Create/Edit Milestone");
+        await this.fillDialogField(milestoneDialog, "Milestone Name", MILESTONE_NAME);
+        await this.fillDialogField(milestoneDialog, "Description", MILESTONE_DESCRIPTION);
+        await this.fillDialogField(milestoneDialog, "Due Days from Created", MILESTONE_DUE_DAYS);
+        await this.fillDialogField(milestoneDialog, "Deliverables", MILESTONE_DELIVERABLES);
+        await this.clickButtonInRoot(milestoneDialog, "Add Event");
+        let eventDialog = await this.waitForDialog("Add Event");
+        await this.fillDialogField(eventDialog, "Event Name", MILESTONE_EVENT_NAME);
+        await this.fillDialogField(eventDialog, "Days from Created", MILESTONE_EVENT_DAYS);
+        await this.setCheckboxInDialog(eventDialog, "Is Due Date?");
+        await this.fillDialogField(eventDialog, "Description", MILESTONE_EVENT_DESCRIPTION);
+        await this.clickButtonInRoot(eventDialog, "Save Event Template");
+        await this.workflow.waitForDialogToClose(eventDialog);
+        await expect(milestoneDialog).toBeDisplayed();
+        await this.clickButtonInRoot(milestoneDialog, "Add Event");
+        eventDialog = await this.waitForDialog("Add Event");
+        await this.clickButtonInRoot(eventDialog, "Cancel");
+        await this.workflow.waitForDialogToClose(eventDialog);
+        await expect(milestoneDialog).toBeDisplayed();
+        await this.clickButtonInRoot(milestoneDialog, "Add Task");
+        let taskDialog = await this.waitForDialog("Add/Edit Task in Milestone");
+        await this.workflow.toggleBillableOffThenOnIfPresent(taskDialog);
+        await this.fillDialogField(taskDialog, "Task to complete", MILESTONE_TASK_TEXT);
+        await this.clickButtonInRoot(taskDialog, "Save");
+        await this.workflow.waitForDialogToClose(taskDialog);
+        await expect(await this.findRowByText(milestoneDialog, MILESTONE_TASK_TEXT)).toBeDisplayed();
+        await this.clickButtonInRoot(milestoneDialog, "Add Task");
+        taskDialog = await this.waitForDialog("Add/Edit Task in Milestone");
+        await this.clickButtonInRoot(taskDialog, "Close");
+        await this.workflow.waitForDialogToClose(taskDialog);
+        await expect(milestoneDialog).toBeDisplayed();
+        await this.clickButtonInRoot(milestoneDialog, "Submit");
+        await this.workflow.waitForDialogToClose(milestoneDialog);
+    }
+
+    async handleTemplateEventsSection() {
+        await this.openInfoNearTextAndExpectContent("Events");
+        const eventsSection = this.getSectionRoot("Events");
+        await this.clickButtonInRoot(eventsSection, "Add Event");
+        let eventDialog = await this.waitForDialog("Add Event");
+        await this.fillDialogField(eventDialog, "Event Name", TEMPLATE_EVENT_NAME);
+        await this.fillDialogField(eventDialog, "Days from Created", TEMPLATE_EVENT_DAYS);
+        await this.setCheckboxInDialog(eventDialog, "Is Due Date?");
+        await this.fillDialogField(eventDialog, "Description", TEMPLATE_EVENT_DESCRIPTION);
+        await this.clickButtonInRoot(eventDialog, "Save Event Template");
+        await this.workflow.waitForDialogToClose(eventDialog);
+        await this.openRowMenu(eventsSection, TEMPLATE_EVENT_NAME);
+        await this.clickMenuAction("Edit");
+        eventDialog = await this.waitForDialog("Add Event");
+        await this.clickButtonInRoot(eventDialog, "Cancel");
+        await this.workflow.waitForDialogToClose(eventDialog);
+        await this.openRowMenu(eventsSection, TEMPLATE_EVENT_NAME);
+        await this.clickMenuAction("Remove");
+        await this.answerConfirmRemoval("No");
+        await expect(await this.findRowByText(eventsSection, TEMPLATE_EVENT_NAME)).toBeDisplayed();
+        await this.openRowMenu(eventsSection, TEMPLATE_EVENT_NAME);
+        await this.clickMenuAction("Remove");
+        await this.answerConfirmRemoval("Yes");
+    }
+
+    async handleTemplateMilestonesSection() {
+        const milestonesSection = this.getSectionRoot("Milestones");
+        await this.openRowMenu(milestonesSection, MILESTONE_NAME);
+        await this.clickMenuAction("Edit");
+        let milestoneDialog = await this.waitForDialog("Create/Edit Milestone");
+        await this.clickButtonInRoot(milestoneDialog, "Cancel");
+        await this.workflow.waitForDialogToClose(milestoneDialog);
+        await this.openRowMenu(milestonesSection, MILESTONE_NAME);
+        await this.clickMenuAction("Remove");
+        await this.answerConfirmRemoval("No");
+        await expect(await this.findRowByText(milestonesSection, MILESTONE_NAME)).toBeDisplayed();
+        await this.openRowMenu(milestonesSection, MILESTONE_NAME);
+        await this.clickMenuAction("Remove");
+        await this.answerConfirmRemoval("Yes");
+    }
+
+    async saveTemplateAndReturn() {
+        await this.workflow.safeClick(this.workflow.saveTemplateButton);
+        const confirmation = $('//*[contains(normalize-space(),"saved") or contains(normalize-space(),"Saved") or contains(normalize-space(),"success") or contains(normalize-space(),"Success") or contains(normalize-space(),"confirmed") or contains(normalize-space(),"Confirmed")]');
+        await confirmation.waitForDisplayed({ timeout: 8000 }).catch(() => false);
+        await this.workflow.safeClick(this.workflow.backToCaseTemplatesButton);
+        await this.expectOnCaseTemplatesLanding();
+    }
+
+    async verifyUnsavedNewTemplateStartsBlank() {
+        await this.workflow.safeClick(this.workflow.newTemplateButton);
+        await this.expectOnAddEditCaseTemplatePage();
+        const templateNameValue = await this.workflow.templateNameInput.getValue().catch(() => "");
+        await expect((templateNameValue || "").trim()).toBe("");
+        await this.workflow.clickButtonByTextIfPresent("Cancel");
+        await this.expectOnCaseTemplatesLanding();
+    }
+
+    async copyRowAndExpectCountIncrease(sourceName, expectedRowName = sourceName) {
+        const beforeCount = await this.workflow.countTemplatesByExactName(expectedRowName);
+        await this.workflow.copyTemplateAndConfirm(sourceName);
+        const afterCount = await this.workflow.countTemplatesByExactName(expectedRowName);
+        await expect(afterCount).toBe(beforeCount + 1);
+    }
+
+    async runRequestedTemplatesScenario() {
+        await this.expectOnCaseTemplatesLanding();
+        await this.openInfoNearTextAndExpectContent("Case Templates");
+        await this.startNewTemplate();
+        await this.fillTemplateHeaderFields();
+        await this.selectCaseTypesInOrder();
+        await this.selectAllowedStatuses();
+        await this.fillDescriptionAndOverviewSection();
+        await this.fillEngagementTemplateSection();
+        await this.createMilestoneFromTemplatePage();
+        await this.handleTemplateEventsSection();
+        await this.handleTemplateMilestonesSection();
+        await this.saveTemplateAndReturn();
+        await this.verifyUnsavedNewTemplateStartsBlank();
+        await this.copyRowAndExpectCountIncrease("Pikachu", "Pikachu");
+        await this.copyRowAndExpectCountIncrease("You're the Best Around", "You're the Best Around-Copy");
+        await this.copyRowAndExpectCountIncrease("Wednesday", "Wednesday-Copy");
+    }
+}
+
+export default new DashboardTemplatesPage();
+
+
+   get allowedStatusesInfoIconButtonShowsUp() {
+       return $('//span[contains(text(), "Assign the allowed case statuses for all cases created with this template. Choose from a list of case statuses defined for your account.")]');
+   }
+
+
+   async allowedStatusesInfoIconButtonShowsUp() {
+       await expect(this.allowedStatusesInfoIconButton).toBeDisplayed();
+   }
+
+
+   get allowedStatusesClickHereBtn() {
+       return $('//button[@data-testid="edit-case-template-case-data-link"]');
+   }
+
+
+   async clickAllowedStatusesClickHereBtn() {
+       await this.allowedStatusesClickHereBtn.click();
+   }
+   // EXPECT TO BE TAKEN BACK TO The Case Data Types PAGE AFTER CLICKING THE "Click here" LINK IN THE Allowed Statuses INFO ICON BUTTON TOOLTIP
+
+
+   get creatSlashEditMilestoneMilestoneNameInputField() {
+       return $('#field-rgo__control');
+   }
+  
+   async enterMilestoneName(milestoneName) {
+       await this.creatSlashEditMilestoneMilestoneNameInputField.setValue(milestoneName);
+       await this.creatSlashEditMilestoneMilestoneNameInputField.waitForDisplayed();
+       await this.creatSlashEditMilestoneMilestoneNameInputField.waitForEnabled();
+       await expect(this.creatSlashEditMilestoneMilestoneNameInputField).toBeDisplayed();
+       await expect(this.creatSlashEditMilestoneMilestoneNameInputField).toBeEnabled();
+       const input = await $('#field-rgo__control')
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("Glenn Quagmire's Milestone");
+   }
+  
+   get createSlashEditMilestoneDescriptionInputField() {
+       return $('#field-r6o__control');
+   }
+
+
+   async enterMilestoneDescription(description) {
+       await this.createSlashEditMilestoneDescriptionInputField.setValue(description);
+       await this.createSlashEditMilestoneDescriptionInputField.waitForDisplayed();
+       await this.createSlashEditMilestoneDescriptionInputField.waitForEnabled();
+       await expect(this.createSlashEditMilestoneDescriptionInputField).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneDescriptionInputField).toBeEnabled();
+       const input = await $('#field-r6o__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("This is the description for Glenn Quagmire's Milestone");
+   }
+
+
+   get createSlashEditMilestoneDueDaysFromCreatedInputField() {
+       return $('#field-r6n__control');
+   }
+
+
+   async enterMilestoneDueDaysFromCreated(days) {
+       await this.createSlashEditMilestoneDueDaysFromCreatedInputField.setValue(days);
+       await this.createSlashEditMilestoneDueDaysFromCreatedInputField.waitForDisplayed();
+       await this.createSlashEditMilestoneDueDaysFromCreatedInputField.waitForEnabled();
+       await expect(this.createSlashEditMilestoneDueDaysFromCreatedInputField).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneDueDaysFromCreatedInputField).toBeEnabled();
+       const input = await $('#field-r6n__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("5");
+   }
+
+
+   get createSlashEditMilestoneDeliverablesInputField() {
+       return $('#field-r6p__control');
+   }
+
+
+   async enterMilestoneDeliverables(deliverables) {
+       await this.createSlashEditMilestoneDeliverablesInputField.setValue(deliverables);
+       await this.createSlashEditMilestoneDeliverablesInputField.waitForDisplayed();
+       await this.createSlashEditMilestoneDeliverablesInputField.waitForEnabled();
+       await expect(this.createSlashEditMilestoneDeliverablesInputField).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneDeliverablesInputField).toBeEnabled();
+       const input = await $('#field-r6p__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("These are the deliverables for Glenn Quagmire's Milestone");
+   }
+
+
+   get createSlashEditMilestoneAddEventButton() {
+       return $('//label[@id="infolabel-r6u__label"]//button[@data-testid="link-button-Add Event"]');
+   }
+
+
+   async clickCreateSlashEditMilestoneAddEventButton() {
+       await this.createSlashEditMilestoneAddEventButton.waitForDisplayed();
+       await this.createSlashEditMilestoneAddEventButton.waitForEnabled();
+       await expect(this.createSlashEditMilestoneAddEventButton).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneAddEventButton).toBeEnabled();
+       await this.createSlashEditMilestoneAddEventButton.click();
+   }
+
+
+   get addEventCard() {
+       return $('//div[contains(text(), "Add Event")]');
+   }
+
+
+   async addEventCardShowsUp() {  
+       await expect(this.addEventCard).toBeDisplayed();
+   }
+
+
+   get addEventCardEventNameInputField() {
+       return $('#field-r6v__control');
+   }
+
+
+   async enterAddEventCardEventName(eventName) {
+       await this.addEventCardEventNameInputField.setValue(eventName);
+       await this.addEventCardEventNameInputField.waitForDisplayed();
+       await this.addEventCardEventNameInputField.waitForEnabled();
+       await expect(this.addEventCardEventNameInputField).toBeDisplayed();
+       await expect(this.addEventCardEventNameInputField).toBeEnabled();
+       const input = await $('#field-r6v__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+       // Type it again
+       await input.setValue("Glenn Quagmire's Event");
+   }
+
+
+   get daysFromCreatedAddEventCardInputField() {
+       return $('#field-r8d__control');
+   }
+
+
+   async enterDaysFromCreatedAddEventCard(days) {
+       await this.daysFromCreatedAddEventCardInputField.setValue(days);
+       await this.daysFromCreatedAddEventCardInputField.waitForDisplayed();
+       await this.daysFromCreatedAddEventCardInputField.waitForEnabled();
+       await expect(this.daysFromCreatedAddEventCardInputField).toBeDisplayed();
+       await expect(this.daysFromCreatedAddEventCardInputField).toBeEnabled();
+       const input = await $('#field-r8d__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("10");
+   }
+
+
+   get addEventIsDueDateCheckbox() {
+       return $('#checkbox-r8e');
+   }
+
+
+   async clickAddEventIsDueDateCheckbox() {
+       await this.addEventIsDueDateCheckbox.waitForDisplayed();
+       await this.addEventIsDueDateCheckbox.waitForEnabled();
+       await expect(this.addEventIsDueDateCheckbox).toBeDisplayed();
+       await expect(this.addEventIsDueDateCheckbox).toBeEnabled();
+       await this.addEventIsDueDateCheckbox.click();
+   }
+
+
+   get addEventDescriptionInputField() {
+       return $('#field-r8f__control');
+   }
+
+
+   async enterAddEventDescription(description) {
+       await this.addEventDescriptionInputField.setValue(description);
+       await this.addEventDescriptionInputField.waitForDisplayed();
+       await this.addEventDescriptionInputField.waitForEnabled();
+       await expect(this.addEventDescriptionInputField).toBeDisplayed();
+       await expect(this.addEventDescriptionInputField).toBeEnabled();
+       const input = await $('#field-r8f__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("This is the description for Glenn Quagmire's Event");
+   }
+
+
+   get addEventSaveEventTemplateButton() {
+       return $('//button[@data-testid="event-template-dialog-save"]');
+   }
+
+
+   async clickAddEventSaveEventTemplateButton() {
+       await this.addEventSaveEventTemplateButton.waitForDisplayed();
+       await this.addEventSaveEventTemplateButton.waitForEnabled();
+       await expect(this.addEventSaveEventTemplateButton).toBeDisplayed();
+       await expect(this.addEventSaveEventTemplateButton).toBeEnabled();
+       await this.addEventSaveEventTemplateButton.click();
+   }
+
+
+   get addEventCancelButton() {
+       return $('//button[@data-testid="event-template-dialog-cancel"]');
+   }
+
+
+   async clickAddEventCancelButton() {
+       await this.addEventCancelButton.waitForDisplayed();
+       await this.addEventCancelButton.waitForEnabled();
+       await expect(this.addEventCancelButton).toBeDisplayed();
+       await expect(this.addEventCancelButton).toBeEnabled();
+       await this.addEventCancelButton.click();   
+   }
+
+
+   get tasksAddTaskButton() {
+       return $('//button[@data-testid="link-button-Add Task"]');
+   }
+
+
+   async clickTasksAddTaskButton() {
+       await this.tasksAddTaskButton.waitForDisplayed();
+       await this.tasksAddTaskButton.waitForEnabled();
+       await expect(this.tasksAddTaskButton).toBeDisplayed();
+       await expect(this.tasksAddTaskButton).toBeEnabled();
+       await this.tasksAddTaskButton.click();
+   }
+
+
+   get addSlashEditTaskInMilestoneCard() {
+       return $('//div[contains(text(), "Add/Edit Task in Milestone")]');
+   }
+
+
+   async addSlashEditTaskInMilestoneCardShowsUp() {
+       await expect(this.addSlashEditTaskInMilestoneCard).toBeDisplayed();
+   }
+
+
+   get addSlashEditTaskInMilestoneBillableCheckboxButton() {
+       return $('//button[@data-testid="task-template-dialog-billable-button"]');
+   }
+
+
+   async clickAddSlashEditTaskInMilestoneBillableCheckboxButton() {
+       await this.addSlashEditTaskInMilestoneBillableCheckboxButton.waitForDisplayed();
+       await this.addSlashEditTaskInMilestoneBillableCheckboxButton.waitForEnabled();
+       await expect(this.addSlashEditTaskInMilestoneBillableCheckboxButton).toBeDisplayed();
+       await expect(this.addSlashEditTaskInMilestoneBillableCheckboxButton).toBeEnabled();
+       await this.addSlashEditTaskInMilestoneBillableCheckboxButton.click();
+   }
+
+
+   get addSlashEditTaskInMilestoneTaskToCompleteInputField() {
+       return $('#field-r8p__control');
+   }
+
+
+   async enterAddSlashEditTaskInMilestoneTaskToComplete(task) {
+       await this.addSlashEditTaskInMilestoneTaskToCompleteInputField.setValue(task);
+       await this.addSlashEditTaskInMilestoneTaskToCompleteInputField.waitForDisplayed();
+       await this.addSlashEditTaskInMilestoneTaskToCompleteInputField.waitForEnabled();
+       await expect(this.addSlashEditTaskInMilestoneTaskToCompleteInputField).toBeDisplayed();
+       await expect(this.addSlashEditTaskInMilestoneTaskToCompleteInputField).toBeEnabled();
+       const input = await $('#field-r8p__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("This is the task to complete for Glenn Quagmire's Task in Milestone");
+   }
+
+
+   get addSlashEditTaskInMilestoneSaveButton() {
+       return $('//button[@data-testid="task-template-dialog-save-button"]');
+   }
+
+
+   async clickAddSlashEditTaskInMilestoneSaveButton() {   
+       await this.addSlashEditTaskInMilestoneSaveButton.waitForDisplayed();
+       await this.addSlashEditTaskInMilestoneSaveButton.waitForEnabled();
+       await expect(this.addSlashEditTaskInMilestoneSaveButton).toBeDisplayed();
+       await expect(this.addSlashEditTaskInMilestoneSaveButton).toBeEnabled();
+       await this.addSlashEditTaskInMilestoneSaveButton.click();
+   }
+
+
+   get addSlashEditTaskInMilestoneCancelButton() {
+       return $('//button[@data-testid="task-template-dialog-cancel-button"]');
+   }
+
+
+   async clickAddSlashEditTaskInMilestoneCancelButton() {
+       await this.addSlashEditTaskInMilestoneCancelButton.waitForDisplayed();
+       await this.addSlashEditTaskInMilestoneCancelButton.waitForEnabled();
+       await expect(this.addSlashEditTaskInMilestoneCancelButton).toBeDisplayed();
+       await expect(this.addSlashEditTaskInMilestoneCancelButton).toBeEnabled();
+       await this.addSlashEditTaskInMilestoneCancelButton.click();
+   }
+
+
+   get createSlashEditMilestoneAddEventThreeDotsButton() {
+       return $('//button[@aria-label="More items"]');
+   }
+
+
+   async clickCreateSlashEditMilestoneAddEventThreeDotsButton() {
+       await this.createSlashEditMilestoneAddEventThreeDotsButton.waitForDisplayed();
+       await this.createSlashEditMilestoneAddEventThreeDotsButton.waitForEnabled();
+       await expect(this.createSlashEditMilestoneAddEventThreeDotsButton).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneAddEventThreeDotsButton).toBeEnabled();
+       await this.createSlashEditMilestoneAddEventThreeDotsButton.click();
+   }
+
+
+   get creatSlashEditMilestoneAddEventThreeDotButtonEditOption() {
+       return $('//div[@data-testid="custom-data-table-context-menu-item-Edit"]');
+   }
+
+
+   async clickCreatSlashEditMilestoneAddEventThreeDotButtonEditOption() {
+       await this.creatSlashEditMilestoneAddEventThreeDotButtonEditOption.waitForDisplayed();
+       await this.creatSlashEditMilestoneAddEventThreeDotButtonEditOption.waitForEnabled();
+       await expect(this.creatSlashEditMilestoneAddEventThreeDotButtonEditOption).toBeDisplayed();
+       await expect(this.creatSlashEditMilestoneAddEventThreeDotButtonEditOption).toBeEnabled();
+       await this.creatSlashEditMilestoneAddEventThreeDotButtonEditOption.click();
+   }
+
+
+   get creatSlashEditMilestoneAddEventThreeDotButtonRemoveOption() {
+       return $('//div[@data-testid="custom-data-table-context-menu-item-Remove"]');
+   }
+
+
+   async clickCreatSlashEditMilestoneAddEventThreeDotButtonRemoveOption() {
+       await this.creatSlashEditMilestoneAddEventThreeDotButtonRemoveOption.waitForDisplayed();
+       await this.creatSlashEditMilestoneAddEventThreeDotButtonRemoveOption.waitForEnabled();
+       await expect(this.creatSlashEditMilestoneAddEventThreeDotButtonRemoveOption).toBeDisplayed();
+       await expect(this.creatSlashEditMilestoneAddEventThreeDotButtonRemoveOption).toBeEnabled();
+       await this.creatSlashEditMilestoneAddEventThreeDotButtonRemoveOption.click();
+   }
+
+
+   get confirmRemovelOfEventFromMilestoneYesButton() {
+       return $('//button[@data-testid="confirmation-dialog-confirm-button"]');
+   }
+
+
+   async clickConfirmRemovelOfEventFromMilestoneYesButton() {
+       await this.confirmRemovelOfEventFromMilestoneYesButton.waitForDisplayed();
+       await this.confirmRemovelOfEventFromMilestoneYesButton.waitForEnabled();
+       await expect(this.confirmRemovelOfEventFromMilestoneYesButton).toBeDisplayed();
+       await expect(this.confirmRemovelOfEventFromMilestoneYesButton).toBeEnabled();
+       await this.confirmRemovelOfEventFromMilestoneYesButton.click();
+   }
+
+
+    get confirmRemovelOfEventFromMilestoneNoButton() {
+       return $('//button[@data-testid="confirmation-dialog-cancel-button"]');
+   }
+
+
+   async clickConfirmRemovelOfEventFromMilestoneNoButton() {
+       await this.confirmRemovelOfEventFromMilestoneNoButton.waitForDisplayed();
+       await this.confirmRemovelOfEventFromMilestoneNoButton.waitForEnabled();
+       await expect(this.confirmRemovelOfEventFromMilestoneNoButton).toBeDisplayed();
+       await expect(this.confirmRemovelOfEventFromMilestoneNoButton).toBeEnabled();
+       await this.confirmRemovelOfEventFromMilestoneNoButton.click();
+   }
+
+
+   get createSlashEditMilestoneAddTaskThreeDotsButton() {
+       return $('//div[@role="row"][.//span[normalize-space()="dfsd"]]//button[@aria-label="More items"]');
+   }
+
+
+   async clickCreateSlashEditMilestoneAddTaskThreeDotsButton() {
+       await this.createSlashEditMilestoneAddTaskThreeDotsButton.waitForDisplayed();
+       await this.createSlashEditMilestoneAddTaskThreeDotsButton.waitForEnabled();
+       await expect(this.createSlashEditMilestoneAddTaskThreeDotsButton).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneAddTaskThreeDotsButton).toBeEnabled();
+       await this.createSlashEditMilestoneAddTaskThreeDotsButton.click();
+   }
+
+
+   get creatSlashEditMilestoneAddTaskThreeDotButtonEditOption() {
+       return $('//div[@data-testid="custom-data-table-context-menu-item-Edit"]');
+   }
+
+
+   async clickCreatSlashEditMilestoneAddTaskThreeDotButtonEditOption() {
+       await this.creatSlashEditMilestoneAddTaskThreeDotButtonEditOption.waitForDisplayed();
+       await this.creatSlashEditMilestoneAddTaskThreeDotButtonEditOption.waitForEnabled();
+       await expect(this.creatSlashEditMilestoneAddTaskThreeDotButtonEditOption).toBeDisplayed();
+       await expect(this.creatSlashEditMilestoneAddTaskThreeDotButtonEditOption).toBeEnabled();
+       await this.creatSlashEditMilestoneAddTaskThreeDotButtonEditOption.click(); 
+   }
+
+
+   get creatSlashEditMilestoneAddTaskThreeDotButtonRemoveOption() {
+       return $('//div[@data-testid="custom-data-table-context-menu-item-Remove"]');
+   }
+  
+   async clickCreatSlashEditMilestoneAddTaskThreeDotButtonRemoveOption() {
+       await this.creatSlashEditMilestoneAddTaskThreeDotButtonRemoveOption.waitForDisplayed();
+       await this.creatSlashEditMilestoneAddTaskThreeDotButtonRemoveOption.waitForEnabled();
+       await expect(this.creatSlashEditMilestoneAddTaskThreeDotButtonRemoveOption).toBeDisplayed();
+       await expect(this.creatSlashEditMilestoneAddTaskThreeDotButtonRemoveOption).toBeEnabled();
+       await this.creatSlashEditMilestoneAddTaskThreeDotButtonRemoveOption.click();
+   }
+
+   get createSlashEditMilestoneSubmitButton() {
+       return $('//button[@data-testid="milestone-template-submit-button"]');
+   }
+  
+   async clickCreateSlashEditMilestoneSubmitButton() {
+       await this.createSlashEditMilestoneSubmitButton.waitForDisplayed();
+       await this.createSlashEditMilestoneSubmitButton.waitForEnabled();
+       await expect(this.createSlashEditMilestoneSubmitButton).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneSubmitButton).toBeEnabled();
+       await this.createSlashEditMilestoneSubmitButton.click();
+   }
+
+
+    get createSlashEditMilestoneCancelButton() {
+       return $('//button[@data-testid="milestone-template-cancel-button"]');
+   }
+
+   async clickCreateSlashEditMilestoneCancelButton() {
+       await this.createSlashEditMilestoneCancelButton.waitForDisplayed();
+       await this.createSlashEditMilestoneCancelButton.waitForEnabled();
+       await expect(this.createSlashEditMilestoneCancelButton).toBeDisplayed();
+       await expect(this.createSlashEditMilestoneCancelButton).toBeEnabled();
+       await this.createSlashEditMilestoneCancelButton.click();
+   }
+
+   // Now onto the Add/Edit Case Template form for the Events Add Event button to fill out that card next!
+
+   get addSlashEditCaseTemplaeMainCardAddEventButton() {
+       return $('//button[@data-testid="link-button-Add Event"]');
+   }
+
+
+   async clickAddSlashEditCaseTemplaeMainCardAddEventButton() {
+       await this.addSlashEditCaseTemplaeMainCardAddEventButton.waitForDisplayed();
+       await this.addSlashEditCaseTemplaeMainCardAddEventButton.waitForEnabled();
+       await expect(this.addSlashEditCaseTemplaeMainCardAddEventButton).toBeDisplayed();
+       await expect(this.addSlashEditCaseTemplaeMainCardAddEventButton).toBeEnabled();
+       await this.addSlashEditCaseTemplaeMainCardAddEventButton.click();
+   }
+
+    get addSlashEditCaseTemplaeMainCardAddEventCard() {
+       return $('//div[contains(text(), "Add Event")]');
+   }
+
+
+   async addSlashEditCaseTemplaeMainCardAddEventCardShowsUp() {
+       await expect(this.addSlashEditCaseTemplaeMainCardAddEventCard).toBeDisplayed();
+   }
+
+// ================================
+// Start here WIth part of the test
+// ================================
+
+   get addEditEventPopUpCard() {
+       return $('//div[contains(text(), "Edit Event")]');
+   }
+   
+   async addEditEventPopUpCardShowsUp() {
+       await expect(this.addEditEventPopUpCard).toBeDisplayed();
+   }
+
+   get addEventPopUpCardEventNameInputField() {
+       return $('#field-ri6__control');
+   }
+
+   async enterAddEventPopUpCardEventName(eventName) {
+       await this.addEventPopUpCardEventNameInputField.setValue(eventName);
+       await this.addEventPopUpCardEventNameInputField.waitForDisplayed();
+       await this.addEventPopUpCardEventNameInputField.waitForEnabled();
+       await expect(this.addEventPopUpCardEventNameInputField).toBeDisplayed();
+       await expect(this.addEventPopUpCardEventNameInputField).toBeEnabled();
+       const input = await $('#field-ri6__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("Glenn Quagmire's Event from Main Card");
+   }
+
+
+    get daysFromCreatedAddEventPopUpCardInputField() {
+       return $('#field-r8d__control');
+   }
+
+   async enterDaysFromCreatedAddEventPopUpCard(days) {
+       await this.daysFromCreatedAddEventPopUpCardInputField.setValue(days);
+       await this.daysFromCreatedAddEventPopUpCardInputField.waitForDisplayed();
+       await this.daysFromCreatedAddEventPopUpCardInputField.waitForEnabled();
+       await expect(this.daysFromCreatedAddEventPopUpCardInputField).toBeDisplayed();
+       await expect(this.daysFromCreatedAddEventPopUpCardInputField).toBeEnabled();
+       const input = await $('#field-ri7__control');
+
+
+       // Clear existing text
+       await input.clearValue();
+
+
+       // Type it again
+       await input.setValue("15");
+   }
+
+    get addEventPopUpCardIsDueDateCheckbox() {
+       return $('#checkbox-ri8');
+   }
+
+   async clickAddEventPopUpCardIsDueDateCheckbox() {
+       await this.addEventPopUpCardIsDueDateCheckbox.waitForDisplayed();
+       await this.addEventPopUpCardIsDueDateCheckbox.waitForEnabled();
+       await expect(this.addEventPopUpCardIsDueDateCheckbox).toBeDisplayed();
+       await expect(this.addEventPopUpCardIsDueDateCheckbox).toBeEnabled();
+       await this.addEventPopUpCardIsDueDateCheckbox.click();
+   }
+
+    get addEventPopUpCardDescriptionInputField() {
+       return $('#field-ri9__control');
+   }
+
+   async enterAddEventPopUpCardDescription(description) {
+       await this.addEventPopUpCardDescriptionInputField.setValue(description);
+       await this.addEventPopUpCardDescriptionInputField.waitForDisplayed();
+       await this.addEventPopUpCardDescriptionInputField.waitForEnabled();
+       await expect(this.addEventPopUpCardDescriptionInputField).toBeDisplayed();
+       await expect(this.addEventPopUpCardDescriptionInputField).toBeEnabled();
+       const input = await $('#field-ri9__control');
+
+       // Clear existing text
+       await input.clearValue();
+
+       // Type it again
+       await input.setValue("This is the description for Glenn Quagmire's Event from the Main Card");
+   }
+
+    get addEventPopUpCardSaveEventTemplateButton() {
+       return $('//button[@data-testid="event-template-dialog-save"]');
+   }
+
+   async clickAddEventPopUpCardSaveEventTemplateButton() {
+       await this.addEventPopUpCardSaveEventTemplateButton.waitForDisplayed();
+       await this.addEventPopUpCardSaveEventTemplateButton.waitForEnabled();
+       await expect(this.addEventPopUpCardSaveEventTemplateButton).toBeDisplayed();
+       await expect(this.addEventPopUpCardSaveEventTemplateButton).toBeEnabled();
+       await this.addEventPopUpCardSaveEventTemplateButton.click();
+   }
+
+    get addEventPopUpCardCancelButton() {
+       return $('//button[@data-testid="event-template-dialog-cancel"]');
+   }
+
+   async clickAddEventPopUpCardCancelButton() {
+       await this.addEventPopUpCardCancelButton.waitForDisplayed();
+       await this.addEventPopUpCardCancelButton.waitForEnabled();
+       await expect(this.addEventPopUpCardCancelButton).toBeDisplayed();
+       await expect(this.addEventPopUpCardCancelButton).toBeEnabled();
+       await this.addEventPopUpCardCancelButton.click();
+   }
+
+   get addSlashEditCaseTemplateMainPageSaveButtonAtTopPage(){
+        return $('//button[@data-testid="edit-case-template-save-button"]');
+   }
+
+    async clickAddSlashEditCaseTemplateMainPageSaveButtonAtTopPage() {
+        await this.addSlashEditCaseTemplateMainPageSaveButtonAtTopPage.waitForDisplayed();
+        await this.addSlashEditCaseTemplateMainPageSaveButtonAtTopPage.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateMainPageSaveButtonAtTopPage).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateMainPageSaveButtonAtTopPage).toBeEnabled();
+        await this.addSlashEditCaseTemplateMainPageSaveButtonAtTopPage.click();
+    }
+
+    get addSlashEditCaseTemplateMainPageCancelButtonAtTopPage(){
+        return $('//button[@data-testid="edit-case-template-cancel-button"]');
+    }
+
+    async clickAddSlashEditCaseTemplateMainPageCancelButtonAtTopPage() {
+        await this.addSlashEditCaseTemplateMainPageCancelButtonAtTopPage.waitForDisplayed();
+        await this.addSlashEditCaseTemplateMainPageCancelButtonAtTopPage.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateMainPageCancelButtonAtTopPage).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateMainPageCancelButtonAtTopPage).toBeEnabled();
+        await this.addSlashEditCaseTemplateMainPageCancelButtonAtTopPage.click();
+    }
+
+    get addSlashEditCaseTemplateBackToCaseTemplatesButton() {
+        return $('//button[contains(text(), "Back to Case Templates")]');
+    }
+
+    async clickAddSlashEditCaseTemplateBackToCaseTemplatesButton() {
+        await this.addSlashEditCaseTemplateBackToCaseTemplatesButton.waitForDisplayed();
+        await this.addSlashEditCaseTemplateBackToCaseTemplatesButton.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateBackToCaseTemplatesButton).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateBackToCaseTemplatesButton).toBeEnabled();
+        await this.addSlashEditCaseTemplateBackToCaseTemplatesButton.click();
+    }
+
+    // ===================================
+    // Case Templates Page Select an Already Built Template to Create a New Case Tests Start Here
+    // ===================================
+
+    get blackWidowTemplateRow() {
+        return $('//div[@role="row"][.//span[normalize-space()="Black Widow Template"]]');
+    }
+
+    async clickBlackWidowTemplateRow() {
+        await this.blackWidowTemplateRow.waitForDisplayed();
+        await this.blackWidowTemplateRow.waitForEnabled();
+        await expect(this.blackWidowTemplateRow).toBeDisplayed();
+        await expect(this.blackWidowTemplateRow).toBeEnabled();
+    }
+
+    get blackWidowTemplateRowThreeDotsButton() {
+        return $('//div[@role="row"][.//span[normalize-space()="Black Widow Template"]]//button[@aria-label="More items"]');
+    }
+
+    async clickBlackWidowTemplateRowThreeDotsButton() {
+        await this.blackWidowTemplateRowThreeDotsButton.waitForDisplayed();
+        await this.blackWidowTemplateRowThreeDotsButton.waitForEnabled();
+        await expect(this.blackWidowTemplateRowThreeDotsButton).toBeDisplayed();
+        await expect(this.blackWidowTemplateRowThreeDotsButton).toBeEnabled();
+        await this.blackWidowTemplateRowThreeDotsButton.click();
+    }
+
+    get blackWidowTemplateRowThreeDotsButtonUseTemplateCopyOption() {
+        return $('//div[@data-testid="custom-data-table-context-menu-item-Copy"]');
+    
+    }
+    
+    async clickBlackWidowTemplateRowThreeDotsButtonUseTemplateCopyOption() {
+        await this.blackWidowTemplateRowThreeDotsButtonUseTemplateCopyOption.waitForDisplayed();
+        await this.blackWidowTemplateRowThreeDotsButtonUseTemplateCopyOption.waitForEnabled();
+        await expect(this.blackWidowTemplateRowThreeDotsButtonUseTemplateCopyOption).toBeDisplayed();
+        await expect(this.blackWidowTemplateRowThreeDotsButtonUseTemplateCopyOption).toBeEnabled();
+        await this.blackWidowTemplateRowThreeDotsButtonUseTemplateCopyOption.click();
+    }
+
+    get blackWidowTemplateConfirmCopyPopUpCard() {
+        return $('//div[contains(text(), "Confirm Copy")]');
+    }
+
+    async blackWidowTemplateConfirmCopyPopUpCardShowsUp() {
+        await expect(this.blackWidowTemplateConfirmCopyPopUpCard).toBeDisplayed();
+    }
+
+    get blackWidowTemplateConfirmCopyPopUpCardYesButton() {
+        return $('//button[@data-testid="confirmation-dialog-confirm-button"]');
+    }
+
+    async clickBlackWidowTemplateConfirmCopyPopUpCardYesButton() {
+        await this.blackWidowTemplateConfirmCopyPopUpCardYesButton.waitForDisplayed();
+        await this.blackWidowTemplateConfirmCopyPopUpCardYesButton.waitForEnabled();
+        await expect(this.blackWidowTemplateConfirmCopyPopUpCardYesButton).toBeDisplayed();
+        await expect(this.blackWidowTemplateConfirmCopyPopUpCardYesButton).toBeEnabled();
+        await this.blackWidowTemplateConfirmCopyPopUpCardYesButton.click();
+    }
+
+    get blackWidowTemplateConfirmCopyPopUpCardNoButton() {
+        return $('//button[@data-testid="confirmation-dialog-cancel-button"]');
+    }
+
+    async clickBlackWidowTemplateConfirmCopyPopUpCardNoButton() {
+        await this.blackWidowTemplateConfirmCopyPopUpCardNoButton.waitForDisplayed();
+        await this.blackWidowTemplateConfirmCopyPopUpCardNoButton.waitForEnabled(); 
+        await expect(this.blackWidowTemplateConfirmCopyPopUpCardNoButton).toBeDisplayed();
+        await expect(this.blackWidowTemplateConfirmCopyPopUpCardNoButton).toBeEnabled();
+        await this.blackWidowTemplateConfirmCopyPopUpCardNoButton.click();
+    }
+
+    get blackWidowTemplate_CopyRow() {
+        return $('//div[@role="row"][.//span[normalize-space()="Black Widow Template-Copy"]]');
+    }
+
+    async blackWidowTemplate_CopyRowShowsUp() {
+        await expect(this.blackWidowTemplate_CopyRow).toBeDisplayed();
+    }
+
+
+
+    // ====================================================================
+    // Editing portions of the Black Widow Template-Copy Tests Start Here
+    // ====================================================================
+
+    get blackWidowTemplate_CopyRowThreeDotsButtonEditButton() {
+        return $('//div[@data-testid="custom-data-table-context-menu-item-Edit"]');
+    }
+
+    async clickBlackWidowTemplate_CopyRowThreeDotsButtonEditButton() {
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonEditButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonEditButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonEditButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonEditButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonEditButton.click();
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_Copy() {
+        return $('//span[contains(text(), "Add/Edit Case Template")]');
+    }
+
+    async addSlashEditCaseTemplateForBlackWidowTemplate_CopyShowsUp() {
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_Copy).toBeDisplayed();
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyNameInputField() {
+        return $('#field-r12s__control');
+    }
+
+    async enterAddSlashEditCaseTemplateForBlackWidowTemplate_CopyName(name) {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyNameInputField.setValue(name);
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyNameInputField.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyNameInputField.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyNameInputField).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyNameInputField).toBeEnabled();
+        const input = await $('#field-r12s__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Black Widow Template-Copy Edited");
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyDescriptionInputField() {
+        return $('#field-r131__control');
+    }
+
+    async enterAddSlashEditCaseTemplateForBlackWidowTemplate_CopyDescription(description) {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyDescriptionInputField.setValue(description);
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyDescriptionInputField.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyDescriptionInputField.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyDescriptionInputField).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyDescriptionInputField).toBeEnabled();
+        const input = await $('#field-r131__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("This is the description for the Black Widow Template-Copy that has been edited");
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButton() {
+        return $('#field-r12t__control');
+    }
+
+    async clickAddSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButton() {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButton.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButton.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButton).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButton).toBeEnabled();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButton.click();
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionOne() {
+        return $('//button[@id="field-r12t__control"]//span[contains(., "111111111111111111111111111111")]');
+    }
+
+    async clickAddSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionOne() {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionOne.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionOne.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionOne).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionOne).toBeEnabled();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionOne.click();
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionTwo() {
+        return $('//button[@id="field-r12t__control"]//span[contains(., "big zesty shrek")]');
+    }
+
+    async clickAddSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionTwo() {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionTwo.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionTwo.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionTwo).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionTwo).toBeEnabled();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionTwo.click();
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionThree() {
+        return $('//button[@id="field-r12t__control"]//span[contains(., "CaseType_1777908064990")]');
+    }
+
+    async clickAddSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionThree() {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionThree.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionThree.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionThree).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionThree).toBeEnabled();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionThree.click();
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFour() {
+        return $('//button[@id="field-r12t__control"]//span[contains(., "CaseType_1777908679399")]');
+    }
+
+    async clickAddSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFour() {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFour.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFour.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFour).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFour).toBeEnabled();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFour.click();
+    }
+
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFive() {
+        return $('//button[@id="field-r12t__control"]//span[contains(., "CaseType_1777909408167")]');
+    }
+
+    async clickAddSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFive() {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFive.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFive.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFive).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFive).toBeEnabled();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionFive.click();
+    }
+    get addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionSix() {
+        return $('//button[@id="field-r12t__control"]//span[contains(., "Regular")]');
+    }
+
+    async clickAddSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionSix() {
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionSix.waitForDisplayed();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionSix.waitForEnabled();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionSix).toBeDisplayed();
+        await expect(this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionSix).toBeEnabled();
+        await this.addSlashEditCaseTemplateForBlackWidowTemplate_CopyCaseTypeDropdownMenuButtonOptionSix.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesNewDropdownMenuButton() {
+        return $('//button[contains(text(), "New")]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesNewDropdownMenuButton() {
+        await this.blackWidowTemplate_CopyAllowedStatusesNewDropdownMenuButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesNewDropdownMenuButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewDropdownMenuButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewDropdownMenuButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesNewDropdownMenuButton.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckbox() {
+        return $('//input[@id="New:vague disadvantage"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckboxChecked() {
+        return $('//input[@id="New:vague disadvantage" and @checked="checked"]');
+    }
+
+    async blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckboxCheckedShowsUp() {
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckboxChecked).toBeDisplayed();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesNewNewCheckboxChecked() { 
+        return $('//input[@id="New:new"]')
+    }
+    
+    async blackWidowTemplate_CopyAllowedStatusesNewNewCheckboxCheckedShowsUp() {
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewNewCheckboxChecked).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewNewCheckboxChecked).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesNewNewCheckboxChecked.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckboxCheckedIsUnchecked() {
+        return $('//input[@id="New:vague disadvantage" and not(@checked="checked")]');
+    }
+
+    async blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckboxCheckedIsUncheckedShowsUp() {
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesNewVagueDisadvantagedCheckboxCheckedIsUnchecked).toBeDisplayed();
+    }
+
+    get blackWidowTemplate_CopyNewSecondaryStrangerCheckbox() {
+        return $('//input[@id="New:secondary stranger"]');
+    }
+
+    async clickBlackWidowTemplate_CopyNewSecondaryStrangerCheckbox() {
+        await this.blackWidowTemplate_CopyNewSecondaryStrangerCheckbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyNewSecondaryStrangerCheckbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyNewSecondaryStrangerCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyNewSecondaryStrangerCheckbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyNewSecondaryStrangerCheckbox.click();
+    }
+
+    get blackWidowTemplate_Copy11111111111111111111111111111111111111111111111111Checkbox() {
+        return $('//input[@id="New:111111111111111111111111111111"]');
+    }
+
+    async clickBlackWidowTemplate_Copy11111111111111111111111111111111111111111111111111Checkbox() {
+        await this.blackWidowTemplate_Copy11111111111111111111111111111111111111111111111111Checkbox.waitForDisplayed();
+        await this.blackWidowTemplate_Copy11111111111111111111111111111111111111111111111111Checkbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_Copy11111111111111111111111111111111111111111111111111Checkbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_Copy11111111111111111111111111111111111111111111111111Checkbox).toBeEnabled();
+        await this.blackWidowTemplate_Copy11111111111111111111111111111111111111111111111111Checkbox.click();
+    }
+
+    get blackWidowTemplate_CopyAutomationStatusCheckbox() {
+        return $('//input[@id="New:Automation Status"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAutomationStatusCheckbox() {
+        await this.blackWidowTemplate_CopyAutomationStatusCheckbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAutomationStatusCheckbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAutomationStatusCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAutomationStatusCheckbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAutomationStatusCheckbox.click();
+    }
+
+    get blackWidowTemplate_CopyActiveCheckbox() {
+        return $('//button[contains(text(), "Active")]');
+    }
+
+    async clickBlackWidowTemplate_CopyActiveCheckbox() {
+        await this.blackWidowTemplate_CopyActiveCheckbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyActiveCheckbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyActiveCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyActiveCheckbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyActiveCheckbox.click();
+    }
+
+    get blackWidowTemplate_CopyActiveActiveCheckbox() {
+        return $('//input[@id="Active:Active"]');
+    }
+
+    async blackWidowTemplate_CopyActiveActiveCheckboxCheckedShowsUp() {
+        await expect(this.blackWidowTemplate_CopyActiveActiveCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyActiveActiveCheckbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyActiveActiveCheckbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesActiveActiveTestCheckbox() {
+        return $('//input[@id="Active:ActiveTest"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesActiveActiveTestCheckbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesActiveActiveTestCheckbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesActiveActiveTestCheckbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesActiveActiveTestCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesActiveActiveTestCheckbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesActiveActiveTestCheckbox.click();
+    }
+
+    get blackWidowTemplateAllowedStatusesActiveTestifyingSlashDepoCheckbox() {
+        return $('//input[@id="Active:Testifying / Depo"]');
+    }
+
+    async clickBlackWidowTemplateAllowedStatusesActiveTestifyingSlashDepoCheckbox() {
+        await this.blackWidowTemplateAllowedStatusesActiveTestifyingSlashDepoCheckbox.waitForDisplayed();
+        await this.blackWidowTemplateAllowedStatusesActiveTestifyingSlashDepoCheckbox.waitForEnabled();
+        await expect(this.blackWidowTemplateAllowedStatusesActiveTestifyingSlashDepoCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplateAllowedStatusesActiveTestifyingSlashDepoCheckbox).toBeEnabled();
+        await this.blackWidowTemplateAllowedStatusesActiveTestifyingSlashDepoCheckbox.click();
+    }
+
+    get blackWidowTemplateAllowedStatusesActive11111111111111111111111111111111111111111111111111Checkbox() {
+        return $('//input[@id="Active:11111111111111111111111111111111111111111111111111"]');
+    }
+
+    async clickBlackWidowTemplateAllowedStatusesActive11111111111111111111111111111111111111111111111111Checkbox() {
+        await this.blackWidowTemplateAllowedStatusesActive11111111111111111111111111111111111111111111111111Checkbox.waitForDisplayed();
+        await this.blackWidowTemplateAllowedStatusesActive11111111111111111111111111111111111111111111111111Checkbox.waitForEnabled();
+        await expect(this.blackWidowTemplateAllowedStatusesActive11111111111111111111111111111111111111111111111111Checkbox).toBeDisplayed();
+        await expect(this.blackWidowTemplateAllowedStatusesActive11111111111111111111111111111111111111111111111111Checkbox).toBeEnabled();
+        await this.blackWidowTemplateAllowedStatusesActive11111111111111111111111111111111111111111111111111Checkbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesCompletedDropdownMenuButton() {
+        return $('//button[contains(text(), "Completed")]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesCompletedDropdownMenuButton() {
+        await this.blackWidowTemplate_CopyAllowedStatusesCompletedDropdownMenuButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesCompletedDropdownMenuButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesCompletedDropdownMenuButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesCompletedDropdownMenuButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesCompletedDropdownMenuButton.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesCompletedCompletedTestChekcbox() {
+        return $('//input[@id="Completed:CompletedTest"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesCompletedCompletedTestChekcbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesCompletedCompletedTestChekcbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesCompletedCompletedTestChekcbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesCompletedCompletedTestChekcbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesCompletedCompletedTestChekcbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesCompletedCompletedTestChekcbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesCompleted11111111111111111111111111111111111111111111111111Checkbox() {
+        return $('//input[@id="Completed:11111111111111111111111111111111111111111111111111"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesCompleted11111111111111111111111111111111111111111111111111Checkbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesCompleted11111111111111111111111111111111111111111111111111Checkbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesCompleted11111111111111111111111111111111111111111111111111Checkbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesCompleted11111111111111111111111111111111111111111111111111Checkbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesCompleted11111111111111111111111111111111111111111111111111Checkbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesCompleted11111111111111111111111111111111111111111111111111Checkbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesClosedDropdownMenuButton() {
+        return $('//button[contains(text(), "Closed")]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesClosedDropdownMenuButton() {
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedDropdownMenuButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedDropdownMenuButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosedDropdownMenuButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosedDropdownMenuButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedDropdownMenuButton.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesClosedClosedTestChekcbox() {
+        return $('//input[@id="Closed:ClosedTest"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesClosedClosedTestChekcbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedClosedTestChekcbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedClosedTestChekcbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosedClosedTestChekcbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosedClosedTestChekcbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedClosedTestChekcbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesClosedClosedCheckbox() {
+        return $('//input[@id="Closed:Closed"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesClosedClosedCheckbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedClosedCheckbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedClosedCheckbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosedClosedCheckbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosedClosedCheckbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosedClosedCheckbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesClosed11111111111111111111111111111111111111111111111111Checkbox() {
+        return $('//input[@id="Closed:11111111111111111111111111111111111111111111111111"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesClosed11111111111111111111111111111111111111111111111111Checkbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesClosed11111111111111111111111111111111111111111111111111Checkbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosed11111111111111111111111111111111111111111111111111Checkbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosed11111111111111111111111111111111111111111111111111Checkbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesClosed11111111111111111111111111111111111111111111111111Checkbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesClosed11111111111111111111111111111111111111111111111111Checkbox.click();
+    }
+    
+    get blackWidowTemplate_CopyAllowedStatusesRemovedDroipdownMenuButton() {
+        return $('//button[contains(text(), "Removed")]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesRemovedDroipdownMenuButton() {
+        await this.blackWidowTemplate_CopyAllowedStatusesRemovedDroipdownMenuButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesRemovedDroipdownMenuButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesRemovedDroipdownMenuButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesRemovedDroipdownMenuButton).toBeEnabled();  
+        await this.blackWidowTemplate_CopyAllowedStatusesRemovedDroipdownMenuButton.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesRemovedRemovedTestChekcbox() {
+        return $('//input[@id="Removed:RemovedTest"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesRemovedRemovedTestChekcbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesRemovedRemovedTestChekcbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesRemovedRemovedTestChekcbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesRemovedRemovedTestChekcbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesRemovedRemovedTestChekcbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesRemovedRemovedTestChekcbox.click();
+    }
+
+    get blackWidowTemplate_CopyAllowedStatusesRemoved11111111111111111111111111111111111111111111111111Checkbox() {
+        return $('//input[@id="Removed:11111111111111111111111111111111111111111111111111"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAllowedStatusesRemoved11111111111111111111111111111111111111111111111111Checkbox() {
+        await this.blackWidowTemplate_CopyAllowedStatusesRemoved11111111111111111111111111111111111111111111111111Checkbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAllowedStatusesRemoved11111111111111111111111111111111111111111111111111Checkbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesRemoved11111111111111111111111111111111111111111111111111Checkbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAllowedStatusesRemoved11111111111111111111111111111111111111111111111111Checkbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAllowedStatusesRemoved11111111111111111111111111111111111111111111111111Checkbox.click();
+    }
+
+    get blackWidowTemplate_CopyDescriptionAndOverviewShortDescriptionFieldFieldNmaeInputField() {
+        return $('#field-r139__control');
+    }
+
+    async enterBlackWidowTemplate_CopyDescriptionAndOverviewShortDescriptionFieldFieldNmae(shortDescription) {
+        await this.blackWidowTemplate_CopyDescriptionAndOverviewShortDescriptionFieldFieldNmaeInputField.setValue(shortDescription);
+        await this.blackWidowTemplate_CopyDescriptionAndOverviewShortDescriptionFieldFieldNmaeInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyDescriptionAndOverviewShortDescriptionFieldFieldNmaeInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyDescriptionAndOverviewShortDescriptionFieldFieldNmaeInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyDescriptionAndOverviewShortDescriptionFieldFieldNmaeInputField).toBeEnabled();
+        const input = await $('#field-r139__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Description / Action / Proceeding");
+    }
+
+    get blackWidowTEmplate_CopyDescriptionAndOverviewShortDescriptionFiledDefaultTextInputField() {
+        return $('');
+    }   
+
+    async enterBlackWidowTEmplate_CopyDescriptionAndOverviewShortDescriptionFiledDefaultText(overview) {
+        await this.blackWidowTEmplate_CopyDescriptionAndOverviewShortDescriptionFiledDefaultTextInputField.setValue(overview);
+        await this.blackWidowTEmplate_CopyDescriptionAndOverviewShortDescriptionFiledDefaultTextInputField.waitForDisplayed();
+        await this.blackWidowTEmplate_CopyDescriptionAndOverviewShortDescriptionFiledDefaultTextInputField.waitForEnabled();
+        await expect(this.blackWidowTEmplate_CopyDescriptionAndOverviewShortDescriptionFiledDefaultTextInputField).toBeDisplayed();
+        await expect(this.blackWidowTEmplate_CopyDescriptionAndOverviewShortDescriptionFiledDefaultTextInputField).toBeEnabled();
+        const input = await $('');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Here is some random default text for the overview field in the Black Widow Template-Copy");
+    }
+
+    get blackWidowTemplate_CopyDescriptionAndOverviewOverviewInputField() {
+        return $('#field-r13b__control');
+    }
+
+    async enterBlackWidowTemplate_CopyDescriptionAndOverviewOverviewInput(overview) {
+        await this.blackWidowTemplate_CopyDescriptionAndOverviewOverviewInputField.setValue(overview);
+        await this.blackWidowTemplate_CopyDescriptionAndOverviewOverviewInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyDescriptionAndOverviewOverviewInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyDescriptionAndOverviewOverviewInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyDescriptionAndOverviewOverviewInputField).toBeEnabled();
+        const input = await $('#field-r13b__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Here is some random default text for the overview field in the Black Widow Template-Copy that has been edited");
+    }
+
+    get blackWidowTemplate_CopyInitialNoteNoteInputField() {
+        return $('//textarea[@data-testid="edit-case-template-initial-note-input"]');
+    }
+
+    async enterBlackWidowTemplate_CopyInitialNoteNoteInputField(note) {
+        await this.blackWidowTemplate_CopyInitialNoteNoteInputField.setValue(note);
+        await this.blackWidowTemplate_CopyInitialNoteNoteInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyInitialNoteNoteInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyInitialNoteNoteInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyInitialNoteNoteInputField).toBeEnabled();
+        const input = await $('//textarea[@data-testid="edit-case-template-initial-note-input"]');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Here is some random default text for the initial note field in the Black Widow Template-Copy");
+    }
+
+    get blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButton() {
+        return $('#field-r13j__control');
+    }
+
+    async clickBlackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButton() {
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButton.click();
+    }
+
+    get blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionOne() {
+        return $('//button[contains(text(), "custom-Copy")]');
+    }
+
+    async clickBlackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionOne() {
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionOne.waitForDisplayed();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionOne.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionOne).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionOne).toBeEnabled();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionOne.click();
+    }
+
+    get blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionTwo() {
+        return $('//button[contains(text(), "new copy")]');
+    }
+
+    async clickBlackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionTwo() {
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionTwo.waitForDisplayed();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionTwo.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionTwo).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionTwo).toBeEnabled();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionTwo.click();
+    }
+
+    get blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionThree() {
+        return $('//button[contains(text(), "Engagement? To whom?")]');
+    }
+
+    async clickBlackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionThree() {
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionThree.waitForDisplayed();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionThree.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionThree).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionThree).toBeEnabled();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionThree.click();
+    }
+
+    get blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFour() {
+        return $('//button[contains(text(), "Copyright - Retention Agreement")]');
+    }
+
+    async clickBlackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFour() {
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFour.waitForDisplayed();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFour.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFour).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFour).toBeEnabled();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFour.click();
+    }
+
+    get blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFive() {
+        return $('//button[contains(text(), "Standard Billing and Payment Terms")]');
+    }
+    
+    async clickBlackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFive() {
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFive.waitForDisplayed();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFive.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFive).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFive).toBeEnabled();
+        await this.blackWidowTemplate_CopyEngagementTemplateSelectTemplateDropdownMenuButtonOptionFive.click();
+    }
+
+    get blackWidowTEmplate_CopyMilestonesAddMilestoneButton() {
+        return $('//button[@data-testid="link-button-Add Milestone"]');
+    }
+
+    async clickBlackWidowTEmplate_CopyMilestonesAddMilestoneButton() {
+        await this.blackWidowTEmplate_CopyMilestonesAddMilestoneButton.waitForDisplayed();
+        await this.blackWidowTEmplate_CopyMilestonesAddMilestoneButton.waitForEnabled();
+        await expect(this.blackWidowTEmplate_CopyMilestonesAddMilestoneButton).toBeDisplayed();
+        await expect(this.blackWidowTEmplate_CopyMilestonesAddMilestoneButton).toBeEnabled();
+        await this.blackWidowTEmplate_CopyMilestonesAddMilestoneButton.click();
+    }
+
+    get blackWidowTemplate_CopyCreateSlashEditMilestonePopUpCardTutle() {
+        return $('//div[contains(text(), "Create/Edit Milestone")]');
+    }
+
+    async blackWidowTemplate_CopyCreateSlashEditMilestonePopUpCardTutleShowsUp() {
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditMilestonePopUpCardTutle).toBeDisplayed();
+    }
+
+    get blackWidowTemplate_CopyMilestonesMilestoneNameInputField() {
+        return $('//input[@data-testid="milestone-template-name-input"]');
+    }
+
+    async enterBlackWidowTemplate_CopyMilestonesMilestoneNameInputField(milestoneName) {
+        await this.blackWidowTemplate_CopyMilestonesMilestoneNameInputField.setValue(milestoneName);
+        await this.blackWidowTemplate_CopyMilestonesMilestoneNameInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyMilestonesMilestoneNameInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyMilestonesMilestoneNameInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyMilestonesMilestoneNameInputField).toBeEnabled();
+        const input = await $('//input[@data-testid="milestone-template-name-input"]');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Milestone 1");
+    }
+
+    get blackWidowTemplate_CopyMilestoneDescriptionInputField() {
+        return $('//textarea[@data-testid="milestone-template-description-input"]');
+    }
+
+    async enterBlackWidowTemplate_CopyMilestoneDescriptionInputField(milestoneDescription) {
+        await this.blackWidowTemplate_CopyMilestoneDescriptionInputField.setValue(milestoneDescription);
+        await this.blackWidowTemplate_CopyMilestoneDescriptionInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyMilestoneDescriptionInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyMilestoneDescriptionInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyMilestoneDescriptionInputField).toBeEnabled();
+        const input = await $('//textarea[@data-testid="milestone-template-description-input"]');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Here is some random description for Milestone 1 in the Black Widow Template-Copy");
+    }
+
+    get blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField() {
+        return $('//input[@data-testid="milestone-template-due-days-from-created-input"]');
+    }
+
+    async enterBlackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField(dueDays) {
+        await this.blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField.setValue(dueDays);
+        await this.blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField).toBeEnabled();
+        await this.blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField.click();
+        await this.blackWidowTemplate_CopyCreateSlashMilestoneDueDaysFromCreatedInputField.setValue("30");
+    }
+
+    get blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField() {
+        return $('//input[@data-testid="milestone-template-deliverables-input"]');
+    }
+
+    async enterBlackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField(deliverables) {
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField.setValue(deliverables);
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField).toBeEnabled();
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField.click();
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneDeliverablesInputField.setValue("Here are some random deliverables for this milestone");
+    }
+
+    get blackWidowTemplate_CopyCreateSlashEditMilestoneEventsAddEventButton() {
+        return $('(//button[@data-testid="link-button-Add Event"])[2]');
+    }
+
+    async clickBlackWidowTemplate_CopyCreateSlashEditMilestoneEventsAddEventButton() {
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneEventsAddEventButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneEventsAddEventButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditMilestoneEventsAddEventButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditMilestoneEventsAddEventButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyCreateSlashEditMilestoneEventsAddEventButton.click();
+    }
+
+    get blackWidowTemplate_CopyAddEventPopUpCardTitle() {
+        return $('//div[contains(text(), "Add Event")]');
+    }
+
+    async blackWidowTemplate_CopyAddEventPopUpCardTitleShowsUp() {
+        await expect(this.blackWidowTemplate_CopyAddEventPopUpCardTitle).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddEventPopUpCardTitle).toBeEnabled();
+    }
+
+    get blackWidowTemplate_CopyAddEventEventNameInputField() {
+        return $('#field-r1bk__control');
+    }
+
+    async enterBlackWidowTemplate_CopyAddEventEventNameInputField(eventName) {
+        await this.blackWidowTemplate_CopyAddEventEventNameInputField.setValue(eventName);
+        await this.blackWidowTemplate_CopyAddEventEventNameInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddEventEventNameInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddEventEventNameInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddEventEventNameInputField).toBeEnabled();
+        const input = await $('#field-r1bk__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Event 1");
+    }
+
+    get blackWidowTemplate_CopyAddEventDaysFromCreatedInputField() {
+        return $('#field-r3v__control');
+    }
+
+    async enterBlackWidowTemplate_CopyAddEventDaysFromCreatedInputField(daysFromCreated) {
+        await this.blackWidowTemplate_CopyAddEventDaysFromCreatedInputField.setValue(daysFromCreated);
+        await this.blackWidowTemplate_CopyAddEventDaysFromCreatedInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddEventDaysFromCreatedInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddEventDaysFromCreatedInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddEventDaysFromCreatedInputField).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddEventDaysFromCreatedInputField.click();
+        await this.blackWidowTemplate_CopyAddEventDaysFromCreatedInputField.setValue("15");
+    }
+
+    get blackWidowTemplate_CopyCreateSlashEditMielstoneAddEventIsDueDateChekcbox() {
+        return $('#checkbox-r40');
+    }
+
+    async clickBlackWidowTemplate_CopyCreateSlashEditMielstoneAddEventIsDueDateChekcbox() {
+        await this.blackWidowTemplate_CopyCreateSlashEditMielstoneAddEventIsDueDateChekcbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyCreateSlashEditMielstoneAddEventIsDueDateChekcbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditMielstoneAddEventIsDueDateChekcbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditMielstoneAddEventIsDueDateChekcbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyCreateSlashEditMielstoneAddEventIsDueDateChekcbox.click();
+    }
+
+    get blackWidowTemplate_CopyAddEventDescriptionInputField() {
+        return $('#field-r41__control');
+    }
+
+    async enterBlackWidowTemplate_CopyAddEventDescriptionInputField(description) {
+        await this.blackWidowTemplate_CopyAddEventDescriptionInputField.setValue(description);
+        await this.blackWidowTemplate_CopyAddEventDescriptionInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddEventDescriptionInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddEventDescriptionInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddEventDescriptionInputField).toBeEnabled();
+        const input = await $('#field-r41__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Here is some random description for Event 1 in the Black Widow Template-Copy");
+    }
+
+    get blackWidowTemplate_CopyAddeventSaveEventTemplateButton() {
+        return $('//button[@data-testid="event-template-dialog-save"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAddeventSaveEventTemplateButton() {
+        await this.blackWidowTemplate_CopyAddeventSaveEventTemplateButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddeventSaveEventTemplateButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddeventSaveEventTemplateButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddeventSaveEventTemplateButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddeventSaveEventTemplateButton.click();
+    }
+
+    get blackWidowTemplate_CopyAddEventCancelButton() {
+        return $('//button[@data-testid="event-template-dialog-cancel"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAddEventCancelButton() {
+        await this.blackWidowTemplate_CopyAddEventCancelButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddEventCancelButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddEventCancelButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddEventCancelButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddEventCancelButton.click();
+    }
+
+    get blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventsButton() {
+        return $('//button[contains(text(), "Add Event")]');
+    }
+
+    async clickBlackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventsButton() {
+        await this.blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventsButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventsButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventsButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventsButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventsButton.click();
+    }
+
+    get blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventPopUpCardTitle() {
+        return $('//div[contains(text(), "Add Event")]');
+    }
+
+    async blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventPopUpCardTitleShowsUp() {
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventPopUpCardTitle).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyCreateSlashEditCaseTemplateEventsAddEventPopUpCardTitle).toBeEnabled();
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditCaseTemplateEventsAddEventEventNameInputField() {
+        return $('#field-rkh__control');
+    }
+
+    async enterBlackWidowTemplate_CopyAddSlashEditCaseTemplateEventsAddEventEventNameInputField(eventName) {
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateEventsAddEventEventNameInputField.setValue(eventName);
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateEventsAddEventEventNameInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateEventsAddEventEventNameInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateEventsAddEventEventNameInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateEventsAddEventEventNameInputField).toBeEnabled();
+        const input = await $('#field-rkh__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Event 1");
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField() {
+        return $('#field-rki__control');
+    }
+
+    async enterBlackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField(daysFromCreated) {
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField.setValue(daysFromCreated);
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField.click();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDaysFromCreatedInputField.setValue("15");
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardIsDueDateChekcbox() {
+        return $('#checkbox-rkj');
+    }
+
+    async clickBlackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardIsDueDateChekcbox() {
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardIsDueDateChekcbox.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardIsDueDateChekcbox.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardIsDueDateChekcbox).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardIsDueDateChekcbox).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardIsDueDateChekcbox.click();
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDescriptionInputField() {
+        return $('#field-rkk__control');
+    }
+
+    async enterBlackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDescriptionInputField(description) {
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDescriptionInputField.setValue(description);  
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDescriptionInputField.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDescriptionInputField.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDescriptionInputField).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardDescriptionInputField).toBeEnabled();
+        const input = await $('#field-rkk__control');
+        // Clear existing text
+        await input.clearValue();
+        // Type it again
+        await input.setValue("Here is some random description for Event 1 in the Black Widow Template-Copy");
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardSaveEventTemplateButton() {
+        return $('//button[@data-testid="event-template-dialog-save"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardSaveEventTemplateButton() {
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardSaveEventTemplateButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardSaveEventTemplateButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardSaveEventTemplateButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardSaveEventTemplateButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardSaveEventTemplateButton.click();
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardCancelButton() {
+        return $('//button[@data-testid="event-template-dialog-cancel"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardCancelButton() {
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardCancelButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardCancelButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardCancelButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardCancelButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddSlashEditCaseTemplateAddEventCardCancelButton.click();
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditTemplateSaveButton() {
+        return $('//button[@data-testid="edit-case-template-save-button"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAddSlashEditTemplateSaveButton() {
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateSaveButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateSaveButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditTemplateSaveButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditTemplateSaveButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateSaveButton.click();
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditTemplateCancelButton() {
+        return $('//button[@data-testid="edit-case-template-cancel-button"]');
+    }
+
+    async clickBlackWidowTemplate_CopyAddSlashEditTemplateCancelButton() {
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateCancelButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateCancelButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditTemplateCancelButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditTemplateCancelButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateCancelButton.click();
+    }
+
+    get blackWidowTemplate_CopyAddSlashEditTemplateBackToCaseTemplatesButton() {
+        return $('//button[contains(text(), "Back to Case Templates")]');
+    }
+
+    async clickBlackWidowTemplate_CopyAddSlashEditTemplateBackToCaseTemplatesButton() {
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateBackToCaseTemplatesButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateBackToCaseTemplatesButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditTemplateBackToCaseTemplatesButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyAddSlashEditTemplateBackToCaseTemplatesButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyAddSlashEditTemplateBackToCaseTemplatesButton.click();
+    }
+
+    // =========================================================
+    // Deleting the Black Widow Template-Copy Tests Start Here
+    // =========================================================
+
+    get blackWidowTemplate_CopyRowThreeDotsButtonDeleteOption() {
+        return $('//div[@data-testid="custom-data-table-context-menu-item-Delete"]');
+    }
+
+    async clickBlackWidowTemplate_CopyRowThreeDotsButtonDeleteOption() {
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOption.waitForDisplayed();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOption.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOption).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOption).toBeEnabled();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOption.click();
+    }
+
+    get blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCard() {
+        return $('//div[contains(text(), "Confirm Delete")]');
+    }
+
+    async blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardShowsUp() {
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCard).toBeDisplayed();
+    }
+
+    get blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardYesButton() {
+        return $('//button[@data-testid="confirmation-dialog-confirm-button"]');
+    }
+
+    async clickBlackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardYesButton() {
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardYesButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardYesButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardYesButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardYesButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardYesButton.click();
+    }
+
+    get blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardNoButton() {
+        return $('//button[@data-testid="confirmation-dialog-cancel-button"]');
+    }
+
+    async clickBlackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardNoButton() {
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardNoButton.waitForDisplayed();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardNoButton.waitForEnabled();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardNoButton).toBeDisplayed();
+        await expect(this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardNoButton).toBeEnabled();
+        await this.blackWidowTemplate_CopyRowThreeDotsButtonDeleteOptionConfirmaDeletePopUpCardNoButton.click();
+    }
+}
+
+export default new DashboardTemplatesPage();
