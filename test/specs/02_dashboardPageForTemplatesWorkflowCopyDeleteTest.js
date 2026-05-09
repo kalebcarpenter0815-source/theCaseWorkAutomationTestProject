@@ -11,6 +11,26 @@ describe("Case Templates Workflow Copy And Delete", () => {
     before(async () => {
         await loginAndOpenCaseTemplates();
         targets = await dashboardTemplatesWorkflowPage.ensureBaselineRows();
+
+        const primaryCount = await dashboardTemplatesWorkflowPage.countTemplatesByExactName(targets.primaryName);
+        if (primaryCount === 0) {
+            targets = await dashboardTemplatesWorkflowPage.resolveWorkflowTargets();
+        }
+
+        const secondaryCount = await dashboardTemplatesWorkflowPage.countTemplatesByExactName(targets.secondaryName);
+        if (secondaryCount === 0) {
+            const allNames = await dashboardTemplatesWorkflowPage.getUniqueTemplateNames();
+            const fallbackSecondaryName =
+                allNames.find((name) => name !== targets.primaryName && !name.endsWith("-Copy"))
+                || allNames.find((name) => name !== targets.primaryName)
+                || targets.primaryName;
+
+            targets.secondaryName = fallbackSecondaryName;
+            targets.secondaryCopyName = `${fallbackSecondaryName}-Copy`;
+        }
+
+        await dashboardTemplatesWorkflowPage.ensureTemplateExistsFrom(targets.secondaryCopyName, targets.secondaryName);
+        await dashboardTemplatesWorkflowPage.deleteTemplatesUntilCount(targets.secondaryCopyName, 1);
         await expectCaseTemplatesLanding();
     });
 

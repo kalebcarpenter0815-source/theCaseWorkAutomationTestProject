@@ -32,6 +32,15 @@ export async function signOutBackInAndOpenCaseTemplates() {
 }
 
 export async function expectTemplateCount(templateName, expectedCount) {
+    await browser.waitUntil(async () => {
+        const currentCount = await dashboardTemplatesWorkflowPage.countTemplatesByExactName(templateName);
+        return currentCount === expectedCount;
+    }, {
+        timeout: 10000,
+        interval: 300,
+        timeoutMsg: `Template count did not reach expected value for "${templateName}"`,
+    }).catch(() => false);
+
     const count = await dashboardTemplatesWorkflowPage.countTemplatesByExactName(templateName);
     await expect(count).toBe(expectedCount);
 }

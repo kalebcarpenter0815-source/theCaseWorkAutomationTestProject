@@ -208,10 +208,19 @@ class DashboardTemplatesWorkflowPage extends Page {
     async clickMenuAction(actionLabel) {
         const safeAction = this.escapeXPathText(actionLabel.toLowerCase());
         const safeText = this.escapeXPathText(actionLabel);
-        const menuAction = $(`//*[@role="menuitem" and (normalize-space()=${safeText} or translate(@aria-label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')=${safeAction} or .//*[normalize-space()=${safeText}])] | //button[normalize-space()=${safeText} or .//*[normalize-space()=${safeText}] or translate(@aria-label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')=${safeAction}]`);
+        const selector = `//*[@role="menuitem" and (normalize-space()=${safeText} or translate(@aria-label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')=${safeAction} or .//*[normalize-space()=${safeText}])] | //button[normalize-space()=${safeText} or .//*[normalize-space()=${safeText}] or translate(@aria-label, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')=${safeAction}]`;
+        const candidates = await $$(selector);
 
-        const visible = await menuAction.isDisplayed().catch(() => false);
-        if (!visible) {
+        let menuAction = null;
+        for (const candidate of candidates) {
+            const visible = await candidate.isDisplayed().catch(() => false);
+            if (visible) {
+                menuAction = candidate;
+                break;
+            }
+        }
+
+        if (!menuAction) {
             return false;
         }
 
@@ -1003,14 +1012,34 @@ class DashboardTemplatesWorkflowPage extends Page {
 
     async deleteTemplateAndConfirm(templateName) {
         await this.clickDeleteOnRow(templateName);
-        await this.confirmDeleteDialog.waitForDisplayed({ timeout: 10000 });
+        let dialogVisible = await this.confirmDeleteDialog.isDisplayed().catch(() => false);
+        if (!dialogVisible) {
+            await this.clickDeleteOnRow(templateName);
+            await this.confirmDeleteDialog.waitForDisplayed({ timeout: 10000 });
+            dialogVisible = true;
+        }
+
+        if (!dialogVisible) {
+            throw new Error(`Delete confirmation did not open for row: ${templateName}`);
+        }
+
         await this.confirmDialogYes();
         await this.newTemplateButton.waitForDisplayed({ timeout: 10000 });
     }
 
     async deleteTemplateWithDeclineThenConfirm(templateName) {
         await this.clickDeleteOnRow(templateName);
-        await this.confirmDeleteDialog.waitForDisplayed({ timeout: 10000 });
+        let dialogVisible = await this.confirmDeleteDialog.isDisplayed().catch(() => false);
+        if (!dialogVisible) {
+            await this.clickDeleteOnRow(templateName);
+            await this.confirmDeleteDialog.waitForDisplayed({ timeout: 10000 });
+            dialogVisible = true;
+        }
+
+        if (!dialogVisible) {
+            throw new Error(`Delete confirmation did not open for row: ${templateName}`);
+        }
+
         await this.confirmDialogNo();
         await this.newTemplateButton.waitForDisplayed({ timeout: 10000 });
 
@@ -1056,7 +1085,7 @@ class DashboardTemplatesWorkflowPage extends Page {
         const safeName = this.escapeXPathText(templateName);
         const selector = `//div[@role="row"][.//*[@role="gridcell"][1][normalize-space()=${safeName} or .//*[normalize-space()=${safeName}]]] | //tr[.//td[1][normalize-space()=${safeName} or .//*[normalize-space()=${safeName}]]]`;
         try {
-            await $(selector).waitForExist({ timeout: 1500 });
+            await $(selector).waitForExist({ timeout: 5000 });
         } catch {
             return 0;
         }

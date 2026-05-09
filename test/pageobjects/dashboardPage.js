@@ -954,11 +954,12 @@ async areEventsWithinDays(maxDays) {
 
         await this.clickSaveEventAndWaitForDashboard();
 
-        // Reopen specifically the "Test" event we just saved; fall back to first editable
-        const reopenTarget = await this.findFirstEditableEventByTitle("Test") || await this.findFirstEditableEvent();
+        // Reopen specifically the "Test" event we just saved.
+        // Do not fall back to another event, or verification can read unrelated values.
+        const reopenTarget = await this.findFirstEditableEventByTitle("Test");
 
         if (!reopenTarget) {
-            console.warn("I saved the event, but I could not reopen one to verify.");
+            console.warn("I saved the event, but I could not reopen the Test event to verify.");
             return false;
         }
 
